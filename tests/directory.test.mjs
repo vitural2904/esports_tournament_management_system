@@ -2,6 +2,23 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { fixture, owner, password } from './helpers.mjs';
 
+test('archived directory records cannot join a new tournament while existing snapshots remain readable', async t => {
+  const f = await fixture(t), cookie = await owner(f);
+  const team = (await f.request('/api/teams', { method: 'POST', cookie, body: { name: 'Archive Team', tag: 'ARC' } })).body.team;
+  const player = (await f.request('/api/players', { method: 'POST', cookie, body: { name: 'Archive Player', handle: 'Archived#VN2' } })).body.player;
+  const old = (await f.request('/api/tournaments', { method: 'POST', cookie, body: { name: 'Old season' } })).body.tournament;
+  await f.request(`/api/tournaments/${old.id}/registrations`, { method: 'POST', cookie, body: { teamId: team.id, playerIds: [player.id], revision: 0 } });
+  assert.equal((await f.request(`/api/players/${player.id}`, { method: 'POST', cookie, body: { ...player, archived: true } })).status, 200);
+  const current = (await f.request('/api/tournaments', { method: 'POST', cookie, body: { name: 'New season' } })).body.tournament;
+  assert.equal((await f.request(`/api/tournaments/${current.id}/registrations`, { method: 'POST', cookie, body: { teamId: team.id, playerIds: [player.id], revision: 0 } })).status, 400);
+  assert.equal((await f.request(`/api/teams/${team.id}`, { method: 'POST', cookie, body: { ...team, archived: true } })).status, 200);
+  assert.equal((await f.request(`/api/tournaments/${current.id}/registrations`, { method: 'POST', cookie, body: { teamId: team.id, playerIds: [], revision: 0 } })).status, 400);
+  await f.restart();
+  const stored = (await f.request(`/api/tournaments/${old.id}`, { cookie })).body.tournament;
+  assert.equal(stored.registrations[0].team.name, team.name);
+  assert.equal(stored.registrations[0].players[0].handle, player.handle);
+});
+
 test('directory rejects unauthorized writes, duplicate identities, bad IDs and duplicate tournament players', async t => {
   const f = await fixture(t), cookie = await owner(f);
   assert.equal((await f.request('/api/directory')).status, 401);
