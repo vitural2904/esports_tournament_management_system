@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { motion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import { CalendarDays, Check, RefreshCw, Save, Send } from "lucide-react";
 import { api } from "../lib/api";
-import type { Game, GameData, Match, Tournament } from "../lib/api";
+import type { Game, GameData, Match, Standings, Tournament } from "../lib/api";
+import CompetitionProgress from "./CompetitionProgress";
 import type { Source } from "../../shared/format.mjs";
 import "./MatchOperations.css";
 
@@ -14,6 +15,9 @@ type PickText = Partial<Record<keyof typeof pickFields, string>>;
 export default function MatchOperations({ tournamentId, revision }: { tournamentId: string; revision?: number }) {
   const [event, setEvent] = useState<Tournament | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
+  const [standings, setStandings] = useState<Standings | null>(null);
+  const gamePanel = useRef<HTMLElement>(null);
+  const reducedMotion = useReducedMotion();
   const [selectedId, setSelectedId] = useState("");
   const [number, setNumber] = useState(1);
   const [draft, setDraft] = useState<GameData>({});
@@ -51,9 +55,10 @@ export default function MatchOperations({ tournamentId, revision }: { tournament
   }
   useEffect(() => {
     let current = true;
-    void Promise.all([api<{ tournament: Tournament }>(`/tournaments/${tournamentId}`), api<{ matches: Match[] }>(`/tournaments/${tournamentId}/matches`)]).then(([tournament, list]) => {
+    void Promise.all([api<{ tournament: Tournament }>(`/tournaments/${tournamentId}`), api<{ matches: Match[] }>(`/tournaments/${tournamentId}/matches`), api<Standings>(`/tournaments/${tournamentId}/standings`)]).then(([tournament, list, ranking]) => {
       if (!current) return;
       setEvent(tournament.tournament); setMatches(list.matches);
+      setStandings(ranking);
       const first = list.matches.find(item => item.games.some(game => game.state === "submitted")) || list.matches.find(item => item.status === "in_progress" || item.status === "ready");
       if (first && !selectedId) open(first);
     }).catch(problem => { if (current) setError(problem.message); }).finally(() => { if (current) setLoading(false); });
@@ -67,9 +72,10 @@ export default function MatchOperations({ tournamentId, revision }: { tournament
     return `${source.kind === "winner" ? "Thắng" : "Thua"} ${source.matchId}`;
   }
   async function reload(discard = false) {
-    const [result, tournament] = await Promise.all([api<{ matches: Match[] }>(`/tournaments/${tournamentId}/matches`), api<{ tournament: Tournament }>(`/tournaments/${tournamentId}`)]);
+    const [result, tournament, ranking] = await Promise.all([api<{ matches: Match[] }>(`/tournaments/${tournamentId}/matches`), api<{ tournament: Tournament }>(`/tournaments/${tournamentId}`), api<Standings>(`/tournaments/${tournamentId}/standings`)]);
     setEvent(tournament.tournament);
     setMatches(result.matches);
+    setStandings(ranking);
     if (discard) { const current = result.matches.find(item => item.id === selectedId); if (current) open(current, number, true); }
     return result.matches;
   }
@@ -107,9 +113,10 @@ export default function MatchOperations({ tournamentId, revision }: { tournament
   const patch = (value: Partial<GameData>) => setDraft(current => ({ ...current, ...value }));
   return <section className="mo-shell" aria-label="Vận hành trận đấu"><header className="mo-header"><div><h2>Vận hành trận đấu</h2><p>Ưu tiên game chờ xác nhận và trận đang đấu.</p></div><button type="button" disabled={busy} onClick={() => { setBusy(true); void reload(true).catch(problem => setError(problem.message)).finally(() => setBusy(false)); }}><RefreshCw size={17} />Tải lại trận · bỏ phần chưa lưu</button></header>
     {error && <p role="alert" className="op-error">{error}</p>}{notice && <p role="status" className="op-notice">{notice}</p>}
+    {event && standings && <CompetitionProgress event={event} matches={matches} standings={standings} busy={busy} onSelect={item => { open(item); gamePanel.current?.scrollIntoView({ behavior: reducedMotion ? "instant" : "smooth", block: "start" }); }} />}
     {canConfirm && <details className="op-panel mo-schedule"><summary><CalendarDays size={18} />Đặt lịch · {scheduledIds.length} trận đã chọn</summary><p>Chọn ô cạnh trận. Đặt từng trận hoặc nhiều trận. Giờ dùng múi giờ thiết bị. Các trận theo thứ tự trong danh sách.</p><div className="mo-schedule-fields"><label>Ngày giờ trận đầu<input type="datetime-local" value={date} disabled={busy} onChange={event => setDate(event.target.value)} /></label><label>Cách nhau bao nhiêu phút<input type="number" min={0} max={1440} value={interval} disabled={busy} onChange={event => setInterval(Math.max(0, Math.min(1440, Number(event.target.value))))} /></label><button type="button" disabled={busy || !scheduledIds.length} onClick={() => void schedule()}>Lưu lịch</button><button type="button" disabled={busy || !scheduledIds.length} onClick={() => void schedule(true)}>Xóa lịch đã chọn</button></div></details>}
     <div className="mo-layout"><div className="mo-list" aria-label="Danh sách trận">{loading ? <p role="status">Đang tải trận đấu…</p> : ordered.length ? ordered.map(item => <article key={item.id} className={selectedId === item.id ? "mo-selected" : ""}>{canConfirm && <label className="mo-schedule-check"><input type="checkbox" checked={scheduledIds.includes(item.id)} disabled={busy} onChange={() => setScheduledIds(current => current.includes(item.id) ? current.filter(id => id !== item.id) : [...current, item.id])} /><span>Chọn lịch {item.id}</span></label>}<motion.button type="button" disabled={busy} onClick={() => open(item)} whileTap={{ scale: .99 }}><span className="mo-match-title">{item.id} · BO{item.bo}<small>{item.games.some(game => game.state === "submitted") ? "Chờ xác nhận" : states[item.status]}</small></span><strong>{item.teams[0] ? teamName(item.teams[0]) : sourceName(item.sources[0])}<b>{item.score[0]}</b></strong><strong>{item.teams[1] ? teamName(item.teams[1]) : sourceName(item.sources[1])}<b>{item.score[1]}</b></strong><span className="mo-date">{item.scheduledAt ? new Date(item.scheduledAt).toLocaleString("vi-VN") : "Chưa đặt lịch"}</span></motion.button></article>) : <p>Chốt thể thức để tạo các trận đấu.</p>}</div>
-    <section className="op-panel mo-game">{match ? <><h3>{match.id} · Game {number}</h3><p>{baseGame ? gameStates[baseGame.state] : "Game mới"}{dirty ? " · Có thay đổi chưa lưu" : ""}</p><div className="mo-game-tabs">{match.games.map(game => <button key={game.number} type="button" disabled={busy} aria-pressed={game.number === number} onClick={() => open(match, game.number)}>Game {game.number} · {gameStates[game.state]}</button>)}{["ready", "in_progress"].includes(match.status) && (!match.games.length || match.games.at(-1)?.state === "confirmed") && <button type="button" disabled={busy} onClick={() => open(match, (match.games.at(-1)?.number || 0) + 1)}>Game tiếp theo</button>}</div>
+    <section className="op-panel mo-game" ref={gamePanel}>{match ? <><h3>{match.id} · Game {number}</h3><p>{baseGame ? gameStates[baseGame.state] : "Game mới"}{dirty ? " · Có thay đổi chưa lưu" : ""}</p><div className="mo-game-tabs">{match.games.map(game => <button key={game.number} type="button" disabled={busy} aria-pressed={game.number === number} onClick={() => open(match, game.number)}>Game {game.number} · {gameStates[game.state]}</button>)}{["ready", "in_progress"].includes(match.status) && (!match.games.length || match.games.at(-1)?.state === "confirmed") && <button type="button" disabled={busy} onClick={() => open(match, (match.games.at(-1)?.number || 0) + 1)}>Game tiếp theo</button>}</div>
     {!match.teams.every(Boolean) || ["waiting", "skipped"].includes(match.status) ? <p>Trận chưa đủ đội hoặc chưa cần diễn ra.</p> : <form onSubmit={event => { event.preventDefault(); void gameCommand("submit"); }}><fieldset disabled={busy || !gameEditable}><legend>Kết quả game</legend><label>Đội thắng<select value={draft.winnerId || ""} onChange={event => patch({ winnerId: event.target.value || undefined })}><option value="">Chưa chọn · vẫn lưu được nháp</option>{match.teams.map(id => <option key={id} value={id || ""}>{teamName(id)}</option>)}</select></label></fieldset>
     <details className="mo-optional"><summary>Thông tin tùy chọn</summary><fieldset disabled={busy || !gameEditable}><legend>Dữ liệu game</legend><label>Thời lượng · giây<input type="number" min={0} max={86400} value={draft.durationSeconds ?? ""} onChange={event => patch({ durationSeconds: event.target.value === "" ? undefined : Number(event.target.value) })} /></label><label>Phiên bản game<input maxLength={40} value={draft.patch || ""} onChange={event => patch({ patch: event.target.value || undefined })} /></label>{(["blueTeamId", "redTeamId"] as const).map(field => <label key={field}>{field === "blueTeamId" ? "Bên xanh" : "Bên đỏ"}<select value={draft[field] || ""} onChange={event => patch({ [field]: event.target.value || undefined })}><option value="">Chưa nhập</option>{match.teams.map(id => <option key={id} value={id || ""}>{teamName(id)}</option>)}</select></label>)}
     {match.teams.map(id => <section key={id}><h4>Đội hình · {teamName(id)}</h4><div className="op-player-options">{event?.registrations.find(item => item.team.id === id)?.players.map(player => <label key={player.id}><input type="checkbox" checked={draft.lineups?.[id || ""]?.includes(player.id) || false} onChange={() => { if (!id) return; const players = draft.lineups?.[id] || []; patch({ lineups: { ...draft.lineups, [id]: players.includes(player.id) ? players.filter(value => value !== player.id) : [...players, player.id] } }); }} /><span>{player.handle}</span></label>)}</div></section>)}{(Object.keys(pickFields) as (keyof typeof pickFields)[]).map(field => <label key={field}>{pickFields[field]}<input placeholder="Ahri, Jinx…" value={pickText[field] || ""} onChange={event => { setPickText(current => ({ ...current, [field]: event.target.value })); patch({ pickBan: { ...draft.pickBan, [field]: event.target.value.split(",").map(value => value.trim()).filter(Boolean) } }); }} /></label>)}<small>Tên tướng cách nhau bằng dấu phẩy. Tối đa 5 tướng mỗi ô.</small></fieldset></details>

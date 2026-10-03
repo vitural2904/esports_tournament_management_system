@@ -1,3 +1,5 @@
+import { rankGroup, tieDefinitions } from './standings.mjs';
+
 function fail(status, message) { throw Object.assign(new Error(message), { status }); }
 const gameDto = row => ({ number: row.number, state: row.state, data: JSON.parse(row.data_json), revision: row.revision, submittedBy: row.submitted_by, submittedAt: row.submitted_at, confirmedBy: row.confirmed_by, confirmedAt: row.confirmed_at });
 const object = value => value && typeof value === 'object' && !Array.isArray(value);
@@ -11,7 +13,25 @@ export function createResults(db, directory) {
     const event = directory.tournament(tournamentId);
     const rows = db.prepare('SELECT * FROM matches WHERE tournament_id=? ORDER BY rowid').all(tournamentId);
     const games = db.prepare('SELECT * FROM games WHERE tournament_id=? ORDER BY number').all(tournamentId);
-    const byId = new Map(rows.map(row => [row.id, row])), cache = new Map();
+    const byId = new Map(rows.map(row => [row.id, row])), cache = new Map(), groupCache = new Map(), stageCache = new Map();
+    const definitions = rows.map(row => JSON.parse(row.definition_json));
+    const stages = event.format?.stages || [];
+    function groupStanding(stage, group) {
+      const key = `${stage.id}:${group.id}`;
+      if (!groupCache.has(key)) groupCache.set(key, rankGroup(stage, group, group.inputs.map(resolve), definitions.filter(match => match.stageId === stage.id && match.groupId === group.id && match.branch === 'group').map(match => read(match.id)), definitions.filter(match => match.stageId === stage.id && match.groupId === group.id && match.tiebreak).map(match => read(match.id))));
+      return groupCache.get(key);
+    }
+    function finalMatch(stageId) {
+      const stageMatches = definitions.filter(match => match.stageId === stageId && !match.tiebreak);
+      if (!stageMatches.length) return null;
+      let final = read(stageMatches.at(-1).id);
+      if (final.status === 'skipped') final = read(stageMatches.at(-2).id);
+      return final;
+    }
+    function stageComplete(stage) {
+      if (!stageCache.has(stage.id)) stageCache.set(stage.id, stage.type === 'round_robin' ? stage.groups.every(group => groupStanding(stage, group).completed) : Boolean(finalMatch(stage.id)?.winnerId));
+      return stageCache.get(stage.id);
+    }
     function resolve(source) {
       if (source.kind === 'team') return source.teamId;
       if (source.kind === 'winner' || source.kind === 'loser') {
@@ -19,13 +39,16 @@ export function createResults(db, directory) {
         return previous.winnerId ? source.kind === 'winner' ? previous.winnerId : previous.teams.find(id => id !== previous.winnerId) : null;
       }
       if (source.kind === 'placement') {
-        const stageRows = rows.filter(row => JSON.parse(row.definition_json).stageId === source.stageId);
-        if (!stageRows.length) return null;
-        let final = read(stageRows.at(-1).id);
-        if (final.status === 'skipped' && stageRows.length > 1) final = read(stageRows.at(-2).id);
-        return final.winnerId ? source.rank === 1 ? final.winnerId : final.teams.find(id => id !== final.winnerId) : null;
+        const final = finalMatch(source.stageId);
+        return final?.winnerId ? source.rank === 1 ? final.winnerId : final.teams.find(id => id !== final.winnerId) : null;
       }
-      return null; // Group standings and tie resolution are added by the progression slice.
+      if (source.kind === 'seed') {
+        const stage = stages.find(stage => stage.id === source.stageId), group = stage?.groups.find(group => group.id === source.groupId);
+        if (!group) return null;
+        const standing = groupStanding(stage, group);
+        return standing.completed ? standing.rows.find(row => row.rank === source.rank)?.teamId || null : null;
+      }
+      return null;
     }
     function read(id) {
       if (cache.has(id)) return cache.get(id);
@@ -42,10 +65,18 @@ export function createResults(db, directory) {
         if (!previous.winnerId || !challenger) status = 'waiting';
         else if (previous.winnerId !== challenger) status = 'skipped';
       }
+      if (status === 'ready' && !stages.slice(0, stages.findIndex(stage => stage.id === definition.stageId)).every(stageComplete)) status = 'waiting';
       const result = { ...definition, revision: row.revision, scheduledAt: row.scheduled_at, startedAt: state.startedAt || null, teams, score, winnerId, status, games: matchGames };
       cache.set(id, result); return result;
     }
-    return { event, read, list: () => rows.map(row => read(row.id)) };
+    function standings() {
+      const groups = stages.filter(stage => stage.type === 'round_robin').flatMap(stage => stage.groups.map(group => groupStanding(stage, group)));
+      const completed = Boolean(event.lockedAt) && stages.length > 0 && stages.every(stageComplete);
+      const last = stages.at(-1);
+      const championId = !completed ? null : last.type === 'round_robin' ? (last.groups.length === 1 ? groupStanding(last, last.groups[0]).rows.find(row => row.rank === 1)?.teamId : null) : finalMatch(last.id)?.winnerId;
+      return { groups, completed, championId: championId || null };
+    }
+    return { event, read, standings, list: () => rows.map(row => read(row.id)) };
   }
   function validateData(data, match, event) {
     const allowed = ['winnerId', 'durationSeconds', 'blueTeamId', 'redTeamId', 'lineups', 'pickBan', 'patch'];
@@ -108,6 +139,10 @@ export function createResults(db, directory) {
         db.prepare(`UPDATE games SET state=?,revision=revision+1,${field}_by=?,${field}_at=? WHERE tournament_id=? AND match_id=? AND number=?`).run(field, userId, now, tournamentId, matchId, number);
       }
       db.prepare('UPDATE matches SET revision=revision+1 WHERE tournament_id=? AND id=?').run(tournamentId, matchId);
+      if (action === 'confirm') {
+        const insert = db.prepare('INSERT OR IGNORE INTO matches (tournament_id,id,definition_json) VALUES (?,?,?)');
+        for (const group of view(tournamentId).standings().groups) for (const definition of tieDefinitions(group.stageId, group.pending)) insert.run(tournamentId, definition.id, JSON.stringify(definition));
+      }
       db.exec('COMMIT');
     } catch (error) { if (db.isTransaction) db.exec('ROLLBACK'); throw error; }
     return view(tournamentId).read(matchId).games.find(game => game.number === number);

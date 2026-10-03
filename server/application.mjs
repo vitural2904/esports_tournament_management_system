@@ -135,12 +135,13 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
         return send(200, { user: publicUser(updated) }, createSession(updated));
       }
       if (user.must_change) fail(403, 'Đổi mật khẩu trước khi dùng ứng dụng.');
-      const operationRoute = path.match(/^\/api\/tournaments\/([a-zA-Z0-9-]+)\/(schedule|matches)(?:\/([^/]+)(?:\/games\/(\d+)\/(save|submit|confirm))?)?$/);
+      const operationRoute = path.match(/^\/api\/tournaments\/([a-zA-Z0-9-]+)\/(schedule|matches|standings)(?:\/([^/]+)(?:\/games\/(\d+)\/(save|submit|confirm))?)?$/);
       if (operationRoute) {
         const [, id, section, encodedMatchId, number, action] = operationRoute;
         access.requireRole(user, id);
         let matchId;
         try { matchId = encodedMatchId ? decodeURIComponent(encodedMatchId) : null; } catch { fail(400, 'Mã trận không hợp lệ.'); }
+        if (method === 'GET' && section === 'standings' && !matchId) return send(200, results.view(id).standings());
         if (method === 'GET' && section === 'matches' && !action) {
           const current = results.view(id);
           return send(200, matchId ? { match: current.read(matchId) } : { matches: current.list() });
