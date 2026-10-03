@@ -1,0 +1,105 @@
+[
+  {
+    "blockers": [],
+    "slug": "01-identity",
+    "checks": [
+      "Tạo quản trị đầu tiên một lần, không có mật khẩu mặc định.",
+      "Đăng nhập/đăng xuất; cookie HttpOnly; đổi mật khẩu thu hồi phiên và bắt buộc đổi ở lần đầu với tài khoản được cấp.",
+      "Quản trị cấp tài khoản qua giao diện; người thường bị chặn qua API.",
+      "Dữ liệu tài khoản còn sau restart. Lệnh chạy local có cả API và UI. Test API về quyền và persistence."
+    ],
+    "title": "Đăng nhập, cấp tài khoản và lưu phiên"
+  },
+  {
+    "blockers": [
+      "01-identity"
+    ],
+    "slug": "02-directory",
+    "checks": [
+      "Tạo/sửa đội và tuyển thủ từ giao diện, đọc lại sau tải lại.",
+      "Đăng ký riêng từng giải; thay đổi danh bạ không sửa lịch sử đăng ký cũ.",
+      "Kiểm tra tên, ID và tuyển thủ trùng; API chặn người không có quyền.",
+      "Test hành vi CRUD, quyền và snapshot qua API."
+    ],
+    "title": "Quản lý đội, tuyển thủ và danh sách đăng ký"
+  },
+  {
+    "blockers": [
+      "02-directory"
+    ],
+    "slug": "03-builder",
+    "checks": [
+      "Tạo nhiều giải; gán operator/entry cho từng giải, một người nhiều vị trí.",
+      "Bố cục C, preset vòng tròn/loại trực tiếp/loại kép; chỉnh cấu hình trước khi khóa.",
+      "Chốt thể thức đúng một lần; API chặn sửa cấu trúc/BO/bảng sau khóa.",
+      "Người không có grant không đọc hoặc sửa giải. Nhánh hiển thị nguồn seed chưa xác định. Test restart và revision."
+    ],
+    "title": "Tạo giải, phân quyền theo giải và chốt thể thức"
+  },
+  {
+    "blockers": [
+      "03-builder"
+    ],
+    "slug": "04-results",
+    "checks": [
+      "Nhập lịch từng trận/hàng loạt và đổi lịch sau khóa thể thức.",
+      "Nháp thiếu dữ liệu; gửi cần đội thắng; metadata tùy chọn, không trang bị/KDA.",
+      "Entry gửi, operator xác nhận; điểm chỉ lấy game confirmed. BO1/3/5 kết thúc đúng ngưỡng.",
+      "Giao diện laptop/điện thoại, loading/error rõ; test gửi lặp, game thừa, quyền và dữ liệu còn sau restart."
+    ],
+    "title": "Xếp lịch, nhập game và xác nhận kết quả"
+  },
+  {
+    "blockers": [
+      "04-results"
+    ],
+    "slug": "05-progression",
+    "checks": [
+      "Mẫu hai bảng 4 đội, 2 lượt tạo 24 trận bảng; vào nhánh cả 8 đội theo seed.",
+      "Xét điểm rồi đối đầu; còn hòa tạo BO1 hai đội hoặc vòng tròn BO1, lặp nhóm còn hòa.",
+      "Loại trực tiếp và loại kép chuyển nguồn đúng; DE loại sau hai lần thua.",
+      "Chung kết reset khi đội nhánh thua thắng F1; 38–39 trận chưa tính trận phụ. Test các ví dụ độc lập qua API và xem nhánh từ UI."
+    ],
+    "title": "Tính bảng, trận phụ, seed và nhánh loại kép"
+  },
+  {
+    "blockers": [
+      "05-progression"
+    ],
+    "slug": "06-corrections",
+    "checks": [
+      "Xem trước ảnh hưởng; xác nhận sửa cần lý do và revision.",
+      "Chặn đổi winner khi trận phụ thuộc bị ảnh hưởng đã bắt đầu; metadata vẫn sửa được.",
+      "Xử thắng game/trận có lý do, không dựng dữ liệu game giả; DE tính một lần thua trận.",
+      "Lịch sử người/thời điểm/trước/sau; kiểm tra đồng thời và transaction không ghi nửa lệnh. UI có xác nhận rõ."
+    ],
+    "title": "Sửa kết quả, xử thắng và lịch sử"
+  },
+  {
+    "blockers": [
+      "04-results"
+    ],
+    "slug": "07-rosters",
+    "checks": [
+      "Khóa danh sách trước trận đầu; không sửa trực tiếp sau khóa.",
+      "Đội hình game chỉ lấy từ đăng ký; thay người giữa game được phép.",
+      "Bổ sung sau khóa chỉ operator duyệt, có lý do và lịch sử.",
+      "Thử UI và API trái quyền, đăng ký lịch sử, cầu thủ ngoài danh sách."
+    ],
+    "title": "Khóa đăng ký và duyệt bổ sung tuyển thủ"
+  },
+  {
+    "blockers": [
+      "06-corrections",
+      "07-rosters"
+    ],
+    "slug": "08-release",
+    "checks": [
+      "Đi hết mẫu 8 đội đến nhà vô địch; test restart và hai thành viên ở hai phiên.",
+      "Rà soát Standards và Spec; sửa toàn bộ lỗi quyền/kết quả/persistence.",
+      "Responsive, focus, giảm chuyển động, thông báo rõ; không biến dữ liệu mẫu thành dữ liệu thật.",
+      "Một lệnh chạy local, hướng dẫn tạo quản trị và backup/restore. Không công khai hosting. Build và suite hành vi đạt."
+    ],
+    "title": "Kiểm chứng toàn luồng và bàn giao bản local"
+  }
+]
