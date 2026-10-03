@@ -3,8 +3,9 @@ import { motion } from "motion/react";
 import { api } from "../lib/api";
 import type { Account, Grant, TournamentRole } from "../lib/api";
 
-export default function TournamentGrants({ tournamentId }: { tournamentId: string }) {
-  const [accounts, setAccounts] = useState<Account[]>([]);
+export default function TournamentGrants({ tournamentId, organizationAccounts }: { tournamentId: string; organizationAccounts?: Account[] }) {
+  const [loadedAccounts, setAccounts] = useState<Account[]>([]);
+  const accounts = (organizationAccounts || loadedAccounts).filter(user => !user.admin);
   const [grants, setGrants] = useState<Grant[]>([]);
   const [selected, setSelected] = useState("");
   const [roles, setRoles] = useState<TournamentRole[]>([]);

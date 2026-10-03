@@ -31,7 +31,8 @@ export function compileFormat(input, teamIds, { requireAllTeams = false } = {}) 
       return { kind: 'placement', stageId: value.stageId, rank: value.rank };
     }
     if (['winner', 'loser'].includes(value.kind)) {
-      if (!matches.some(match => match.id === value.matchId)) invalid('Nguồn thắng/thua cần lấy từ trận của giai đoạn trước.');
+      const previous = matches.find(match => match.id === value.matchId);
+      if (!previous || previous.condition) invalid('Nguồn thắng/thua cần lấy từ trận chắc chắn diễn ra của giai đoạn trước. Dùng hạng chung cuộc cho nhánh có reset.');
       return { kind: value.kind, matchId: value.matchId };
     }
     invalid('Loại nguồn đội không được hỗ trợ.');

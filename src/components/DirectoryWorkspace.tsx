@@ -4,11 +4,11 @@ import { motion, useReducedMotion } from "motion/react";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { Check, Plus, Pencil, Users } from "lucide-react";
 import { api } from "../lib/api";
-import type { Player, Team, Tournament } from "../lib/api";
+import type { Account, Player, Team, Tournament } from "../lib/api";
 import TournamentGrants from "./TournamentGrants";
 import FormatBuilder from "./FormatBuilder";
 
-export default function DirectoryWorkspace({ admin = false }: { admin?: boolean }) {
+export default function DirectoryWorkspace({ admin = false, accounts }: { admin?: boolean; accounts?: Account[] }) {
   const [teams, setTeams] = useState<Team[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
@@ -61,7 +61,7 @@ export default function DirectoryWorkspace({ admin = false }: { admin?: boolean 
   const submit = (label: string) => <motion.button className="op-primary" type="submit" disabled={busy} whileTap={{ scale: .98 }}>{busy ? "Đang lưu…" : label}<Check size={17} /></motion.button>;
   return <section className="op-directory" aria-label="Danh bạ và đăng ký giải">
     {tournament && <FormatBuilder key={`format-${tournament.id}`} tournamentId={tournament.id} revision={tournament.revision} onSaved={refresh} />}
-    {admin && tournament && <TournamentGrants key={tournament.id} tournamentId={tournament.id} />}
+    {admin && tournament && <TournamentGrants key={tournament.id} tournamentId={tournament.id} organizationAccounts={accounts} />}
     {error && <p role="alert" className="op-error">{error}</p>}{notice && <p role="status" className="op-notice">{notice}</p>}
     <div className="op-grid"><section className="op-panel"><h2><Plus size={20} /> Giải đấu</h2><p>Tạo giải mới. Đăng ký đội và tuyển thủ riêng cho mùa này.</p><form onSubmit={createTournament}><label>Tên giải<input name="name" required maxLength={120} placeholder="Community Cup 2026" /></label>{submit("Tạo giải")}</form></section>
     <section className="op-panel"><h2>Các giải của tổ chức</h2>{loading ? <p>Đang tải…</p> : tournaments.length ? <div className="op-event-list" ref={list}>{tournaments.map(item => <button key={item.id} type="button" disabled={busy} aria-pressed={selected === item.id} onClick={() => { setSelected(item.id); setRegisterTeam(""); setSelectedPlayers([]); }}><strong>{item.name}</strong><span>{item.registrations.length} đội · {item.lockedAt ? "Đã chốt" : "Đang chuẩn bị"}</span></button>)}</div> : <p>Chưa có giải. Tạo giải để bắt đầu.</p>}</section></div>

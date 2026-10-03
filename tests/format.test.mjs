@@ -88,3 +88,12 @@ test('each preset supports direct teams and multi-stage advancement; incomplete 
   assert.equal((await f.request(`/api/tournaments/${event.id}/lock`, { method: 'POST', cookie, body: { revision: incomplete.body.tournament.revision } })).status, 400);
   assert.equal((await f.request(`/api/tournaments/${event.id}`, { cookie })).body.tournament.lockedAt, null);
 });
+
+test('conditional reset outcomes cannot feed another stage, while final placements can', async t => {
+  const f = await fixture(t), cookie = await owner(f), { event, ids } = await eventWithTeams(f, cookie, 2);
+  const format = createPreset('double_elimination', ids);
+  format.stages.push({ id: 'next', name: 'Next stage', type: 'single_elimination', bo: 3, finalBo: 5, inputs: [{ kind: 'winner', matchId: 'stage1:F2' }, { kind: 'loser', matchId: 'stage1:F2' }] });
+  assert.equal((await f.request(`/api/tournaments/${event.id}/format`, { method: 'POST', cookie, body: { revision: event.revision, format } })).status, 400);
+  format.stages[1].inputs = [{ kind: 'placement', stageId: 'stage1', rank: 1 }, { kind: 'placement', stageId: 'stage1', rank: 2 }];
+  assert.equal((await f.request(`/api/tournaments/${event.id}/format`, { method: 'POST', cookie, body: { revision: event.revision, format } })).status, 200);
+});
