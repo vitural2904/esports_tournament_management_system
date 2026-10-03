@@ -7,6 +7,7 @@ import { dirname } from 'node:path';
 import { createDirectory } from './directory.mjs';
 import { createAccess } from './access.mjs';
 import { createFormats } from './formats.mjs';
+import { createResults } from './results.mjs';
 
 const derive = promisify(scrypt);
 const SESSION_MS = 12 * 60 * 60 * 1000;
@@ -46,6 +47,7 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
   const directory = createDirectory(db);
   const access = createAccess(db);
   const formats = createFormats(db, directory);
+  const results = createResults(db, directory);
   const loginFailures = new Map();
   const unknownPassword = await passwordHash(randomBytes(32).toString('hex'));
   const tokenHash = token => createHash('sha256').update(token).digest('hex');
@@ -133,6 +135,23 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
         return send(200, { user: publicUser(updated) }, createSession(updated));
       }
       if (user.must_change) fail(403, 'Đổi mật khẩu trước khi dùng ứng dụng.');
+      const operationRoute = path.match(/^\/api\/tournaments\/([a-zA-Z0-9-]+)\/(schedule|matches)(?:\/([^/]+)(?:\/games\/(\d+)\/(save|submit|confirm))?)?$/);
+      if (operationRoute) {
+        const [, id, section, encodedMatchId, number, action] = operationRoute;
+        access.requireRole(user, id);
+        let matchId;
+        try { matchId = encodedMatchId ? decodeURIComponent(encodedMatchId) : null; } catch { fail(400, 'Mã trận không hợp lệ.'); }
+        if (method === 'GET' && section === 'matches' && !action) {
+          const current = results.view(id);
+          return send(200, matchId ? { match: current.read(matchId) } : { matches: current.list() });
+        }
+        if (method === 'POST') {
+          const body = await jsonBody(request);
+          access.requireRole(user, id, section === 'schedule' || action === 'confirm' ? 'operator' : 'entry');
+          if (section === 'schedule' && !matchId) return send(200, { matches: results.schedule(id, body) });
+          if (section === 'matches' && matchId && action) return send(200, { game: results.game(id, matchId, Number(number), action, body, user.id) });
+        }
+      }
       if (path === '/api/tournaments') {
         if (method === 'GET') return send(200, { tournaments: directory.tournaments().map(event => ({ ...event, roles: access.roles(user, event.id) })).filter(event => event.roles.length) });
         if (method === 'POST') {

@@ -7,6 +7,7 @@ import { api } from "../lib/api";
 import type { Account, Player, Team, Tournament } from "../lib/api";
 import TournamentGrants from "./TournamentGrants";
 import FormatBuilder from "./FormatBuilder";
+import MatchOperations from "./MatchOperations";
 
 export default function DirectoryWorkspace({ admin = false, accounts }: { admin?: boolean; accounts?: Account[] }) {
   const [teams, setTeams] = useState<Team[]>([]);
@@ -60,6 +61,7 @@ export default function DirectoryWorkspace({ admin = false, accounts }: { admin?
   function togglePlayer(id: string) { setSelectedPlayers(current => current.includes(id) ? current.filter(value => value !== id) : [...current, id]); }
   const submit = (label: string) => <motion.button className="op-primary" type="submit" disabled={busy} whileTap={{ scale: .98 }}>{busy ? "Đang lưu…" : label}<Check size={17} /></motion.button>;
   return <section className="op-directory" aria-label="Danh bạ và đăng ký giải">
+    {tournament?.lockedAt && <MatchOperations key={`matches-${tournament.id}`} tournamentId={tournament.id} />}
     {tournament && <FormatBuilder key={`format-${tournament.id}`} tournamentId={tournament.id} revision={tournament.revision} onSaved={refresh} />}
     {admin && tournament && <TournamentGrants key={tournament.id} tournamentId={tournament.id} organizationAccounts={accounts} />}
     {error && <p role="alert" className="op-error">{error}</p>}{notice && <p role="status" className="op-notice">{notice}</p>}
