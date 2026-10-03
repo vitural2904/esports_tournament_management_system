@@ -5,6 +5,7 @@ import { promisify } from 'node:util';
 import { mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { createDirectory } from './directory.mjs';
+import { createAccess } from './access.mjs';
 
 const derive = promisify(scrypt);
 const SESSION_MS = 12 * 60 * 60 * 1000;
@@ -42,6 +43,7 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
     CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, expires_at INTEGER NOT NULL);`);
   const findUser = id => db.prepare('SELECT * FROM users WHERE id=?').get(id);
   const directory = createDirectory(db);
+  const access = createAccess(db);
   const loginFailures = new Map();
   const unknownPassword = await passwordHash(randomBytes(32).toString('hex'));
   const tokenHash = token => createHash('sha256').update(token).digest('hex');
@@ -130,29 +132,47 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
       }
       if (user.must_change) fail(403, 'Đổi mật khẩu trước khi dùng ứng dụng.');
       if (path === '/api/tournaments') {
-        if (!user.admin) fail(403, 'Chưa có quyền quản lý giải.');
-        if (method === 'GET') return send(200, { tournaments: directory.tournaments() });
-        if (method === 'POST') return send(201, { tournament: directory.createTournament(await jsonBody(request)) });
+        if (method === 'GET') return send(200, { tournaments: directory.tournaments().map(event => ({ ...event, roles: access.roles(user, event.id) })).filter(event => event.roles.length) });
+        if (method === 'POST') {
+          const body = await jsonBody(request);
+          if (!access.managesDirectory(user)) fail(403, 'Chưa có quyền tạo giải.');
+          db.exec('BEGIN IMMEDIATE');
+          try {
+            const tournament = directory.createTournament(body);
+            if (!user.admin) access.save(tournament.id, { userId: user.id, roles: ['operator'], revision: 0 });
+            db.exec('COMMIT');
+            return send(201, { tournament: { ...tournament, roles: access.roles(user, tournament.id) } });
+          } catch (error) { if (db.isTransaction) db.exec('ROLLBACK'); throw error; }
+        }
       }
-      const tournamentRoute = path.match(/^\/api\/tournaments\/([a-zA-Z0-9-]+)(\/registrations)?$/);
+      const tournamentRoute = path.match(/^\/api\/tournaments\/([a-zA-Z0-9-]+)(\/registrations|\/grants)?$/);
       if (tournamentRoute) {
-        if (!user.admin) fail(403, 'Chưa có quyền quản lý giải.');
         const [, id, registrations] = tournamentRoute;
-        if (method === 'GET' && !registrations) return send(200, { tournament: directory.tournament(id) });
-        if (method === 'POST' && registrations) {
-          const result = directory.register(id, await jsonBody(request));
+        if (registrations === '/grants') {
+          if (!user.admin) fail(403, 'Chỉ quản trị được cấp quyền.');
+          directory.tournament(id);
+          if (method === 'GET') return send(200, { grants: access.list(id) });
+          if (method === 'POST') return send(200, { grant: access.save(id, await jsonBody(request)) });
+        }
+        access.requireRole(user, id);
+        if (method === 'GET' && !registrations) return send(200, { tournament: { ...directory.tournament(id), roles: access.roles(user, id) } });
+        if (method === 'POST' && registrations === '/registrations') {
+          const body = await jsonBody(request);
+          access.requireRole(user, id, 'operator');
+          const result = directory.register(id, body);
           return send(result.created ? 201 : 200, { registration: result.registration });
         }
       }
       if (path === '/api/directory' && method === 'GET') {
-        if (!user.admin) fail(403, 'Chưa có quyền quản lý danh bạ.');
+        if (!access.managesDirectory(user)) fail(403, 'Chưa có quyền quản lý danh bạ.');
         return send(200, directory.list());
       }
       const directoryRoute = path.match(/^\/api\/(teams|players)(?:\/([a-zA-Z0-9-]+))?$/);
       if (directoryRoute && method === 'POST') {
-        if (!user.admin) fail(403, 'Chỉ quản trị được sửa danh bạ.');
         const [, kind, id] = directoryRoute;
-        const record = directory.save(kind, await jsonBody(request), id);
+        const body = await jsonBody(request);
+        if (!access.managesDirectory(user)) fail(403, 'Chưa có quyền sửa danh bạ.');
+        const record = directory.save(kind, body, id);
         return send(id ? 200 : 201, { [kind === 'teams' ? 'team' : 'player']: record });
       }
       if (path === '/api/users') {
