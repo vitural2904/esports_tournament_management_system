@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="vi"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bản thử — Nhập kết quả</title>
+<style>
+@font-face{font-family:Lens;src:url('../fonts/lens-grotesk/LensGrotesk-Regular.woff2')}*{box-sizing:border-box}body{margin:0;background:#171b19;color:#eeeae2;font:16px Lens,system-ui,sans-serif;line-height:1.6}main{max-width:1000px;margin:auto;padding:32px 20px}h1{font-size:34px;line-height:1.2}h2{font-size:21px}p{color:#bdc7bc}button,select{font:inherit;min-height:44px;padding:10px 14px;border-radius:6px;border:1px solid #607263;color:inherit;background:#28382b;cursor:pointer}button:hover{background:#405444}button:focus-visible,select:focus-visible{outline:2px solid #f18c72;outline-offset:3px}button[aria-selected=true],button.primary{background:#bdd7c7;color:#171b19}.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}.panel{padding:24px;border:1px solid #475448;border-radius:8px}nav,.actions{display:flex;flex-wrap:wrap;gap:10px;margin:20px 0}.state{background:#eae7df;color:#263029}dl>div{display:flex;justify-content:space-between;gap:18px;padding:10px 0;border-bottom:1px solid #bcc7b5}dd{margin:0;text-align:right}ol{padding-left:22px}.notice{min-height:55px;color:#e7c48c}small{font-size:14px;color:#bbc4b6}@media(max-width:650px){.grid{grid-template-columns:1fr}main{padding:20px 16px}h1{font-size:28px}}pre{font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}
+</style>
+<main><small>Bản thử · Không lưu dữ liệu</small><h1>Nhập game → Xác nhận → Đi tiếp</h1><p>Câu hỏi: bản nháp có giữ riêng khỏi kết quả chính thức? Quyền và sửa kết quả có chặn đúng lúc trận sau bắt đầu?</p>
+<nav aria-label="Kịch bản"><button data-scenario="happy" aria-selected="true">Một trận BO3</button><button data-scenario="roles" aria-selected="false">Quyền nhập liệu</button><button data-scenario="correction" aria-selected="false">Sửa kết quả</button></nav>
+<div class="grid"><section class="panel"><h2>Thao tác</h2><label>Vị trí hiện tại <select id="role"><option value="entry">Nhập liệu</option><option value="operator">Điều hành giải</option></select></label><p id="guide"></p><button id="next" class="primary">Bước tiếp theo</button><div class="actions"><button data-action="draftHome">Nháp: GAM thắng</button><button data-action="draftAway">Nháp: Whales thắng</button><button data-action="submit">Gửi xác nhận</button><button data-action="confirm">Xác nhận game</button><button data-action="nextGame">Game tiếp theo</button><button data-action="startDependent">Bắt đầu trận sau</button><button data-action="correct">Sửa game 2: Whales thắng</button><button data-action="reset">Làm lại</button></div><div class="notice" role="status" id="notice"></div></section>
+<section class="panel state"><h2>Trạng thái hiện tại</h2><dl id="state"></dl><h2>Lịch sử</h2><ol id="history"></ol></section></div><details><summary>Trạng thái đầy đủ của bản thử</summary><pre id="raw"></pre></details>
+<p>BO3 cần 2 game thắng. Trận sau chỉ nhận đội khi cả trận được xác nhận. Sửa đội thắng cần lý do và điều hành giải; bản thử dùng lý do “Nhập nhầm đội thắng”.</p></main>
+<script>
+const initial=()=>({role:'entry',games:[{winner:null,status:'draft'}],current:0,dependentStarted:false,history:[],notice:'Bắt đầu với bản nháp trống.'});
+function transition(previous,action){
+ const s=structuredClone(previous),g=s.games[s.current];
+ const counts=()=>['home','away'].map(team=>s.games.filter(game=>game.status==='confirmed'&&game.winner===team).length);
+ const winner=()=>{const [h,a]=counts();return h>=2?'home':a>=2?'away':null};
+ const reject=message=>({...s,notice:message});
+ if(action.type==='reset')return initial();
+ if(action.type==='role'){s.role=action.value;s.notice='Đã đổi vị trí trong bản thử.';return s}
+ if(action.type==='draftHome'||action.type==='draftAway'){
+  if(g.status!=='draft')return reject('Game đã gửi hoặc xác nhận. Dùng luồng sửa.');
+  g.winner=action.type==='draftHome'?'home':'away';s.notice='Đã lưu nháp. Tỉ số chính thức chưa đổi.';
+ }else if(action.type==='submit'){
+  if(g.status!=='draft'||!g.winner)return reject('Chọn đội thắng trước khi gửi.');g.status='submitted';s.notice='Đã gửi. Chờ điều hành giải xác nhận.';
+ }else if(action.type==='confirm'){
+  if(s.role!=='operator')return reject('Nhập liệu không có quyền xác nhận.');
+  if(g.status!=='submitted')return reject('Chỉ xác nhận game đã gửi.');
+  g.status='confirmed';s.history.push(`Điều hành xác nhận game ${s.current+1}: ${g.winner==='home'?'GAM':'Whales'} thắng.`);s.notice=winner()?'GAM đã thắng trận. Nhận chỗ ở trận sau.':'Đã xác nhận. Cập nhật tỉ số chính thức.';
+ }else if(action.type==='nextGame'){
+  if(g.status!=='confirmed'||winner())return reject('Game chưa xác nhận hoặc trận đã kết thúc.');
+  s.games.push({winner:null,status:'draft'});s.current++;s.notice='Game mới. Có thể đổi đội hình giữa các game.';
+ }else if(action.type==='startDependent'){
+  if(s.role!=='operator')return reject('Chỉ điều hành giải bắt đầu trận.');
+  if(!winner())return reject('Trận trước chưa có đội thắng chính thức.');s.dependentStarted=true;s.notice='Trận sau đã bắt đầu. Khóa sửa đội thắng ở trận trước.';
+ }else if(action.type==='correct'){
+  if(s.role!=='operator')return reject('Chỉ điều hành giải sửa kết quả.');
+  if(s.dependentStarted)return reject('Đã chặn: trận sau bị ảnh hưởng đã bắt đầu.');
+  if(s.games[1]?.status!=='confirmed')return reject('Game 2 chưa được xác nhận.');
+  s.games[1].winner='away';s.history.push('Sửa game 2: GAM → Whales. Lý do: Nhập nhầm đội thắng. Ảnh hưởng: bỏ đội đã đi tiếp ở trận sau chưa bắt đầu.');s.notice='Đã sửa. Tỉ số 1–1. Thu hồi chỗ ở trận sau. Có thể nhập game 3.';
+ }
+ return s;
+}
+const flows={happy:[['draftHome','Nhập liệu chọn GAM thắng game 1.'],['submit','Gửi game 1 cho điều hành.'],[{type:'role',value:'operator'},'Đổi sang điều hành.'],['confirm','Xác nhận game 1.'],['nextGame','Mở game 2.'],['draftHome','GAM thắng game 2.'],['submit','Gửi game 2.'],['confirm','Xác nhận: tỉ số 2–0. GAM đi tiếp.']],roles:[['draftHome','Lưu nháp game 1.'],['submit','Gửi game 1.'],['confirm','Thử xác nhận bằng quyền nhập liệu. Phải bị chặn.'],[{type:'role',value:'operator'},'Đổi sang điều hành.'],['confirm','Xác nhận bằng điều hành.']],correction:[['draftHome','GAM thắng game 1.'],['submit','Gửi game 1.'],[{type:'role',value:'operator'},'Đổi sang điều hành.'],['confirm','Xác nhận game 1.'],['nextGame','Mở game 2.'],['draftHome','GAM thắng game 2.'],['submit','Gửi game 2.'],['confirm','GAM đi tiếp.'],['correct','Sửa game 2. Kiểm tra việc thu hồi chỗ ở trận sau.'],['nextGame','Mở game 3.'],['draftHome','GAM thắng game 3.'],['submit','Gửi game 3.'],['confirm','GAM đi tiếp lần nữa.'],['startDependent','Bắt đầu trận sau.'],['correct','Thử sửa game 2: phải bị chặn.']]};
+let state=initial(),scenario='happy',step=0;
+function dispatch(action){state=transition(state,typeof action==='string'?{type:action}:action);render()}
+function render(){
+ const score=['home','away'].map(team=>state.games.filter(g=>g.status==='confirmed'&&g.winner===team).length);
+ const status={draft:'Nháp',submitted:'Chờ xác nhận',confirmed:'Đã xác nhận'};
+ const fields=[['Vị trí',state.role==='entry'?'Nhập liệu':'Điều hành giải'],['Game',state.current+1],['Trạng thái game',status[state.games[state.current].status]],['Tỉ số chính thức',score.join(' : ')],['Đội đi tiếp',score[0]>=2?'GAM':score[1]>=2?'Whales':'Chưa xác định'],['Trận sau',state.dependentStarted?'Đã bắt đầu':'Chưa bắt đầu']];
+ document.querySelector('#state').innerHTML=fields.map(([label,value])=>`<div><dt>${label}</dt><dd>${value}</dd></div>`).join('');
+ document.querySelector('#history').innerHTML=state.history.map(item=>`<li>${item}</li>`).join('');document.querySelector('#notice').textContent=state.notice;document.querySelector('#raw').textContent=JSON.stringify(state,null,2);document.querySelector('#role').value=state.role;document.querySelector('#guide').textContent=flows[scenario][step]?.[1]||'Kịch bản xong. Có thể thử tự do.';document.querySelector('#next').disabled=step>=flows[scenario].length;
+}
+document.querySelectorAll('[data-action]').forEach(button=>button.onclick=()=>dispatch(button.dataset.action));document.querySelector('#role').onchange=event=>dispatch({type:'role',value:event.target.value});document.querySelector('#next').onclick=()=>{const action=flows[scenario][step++][0];dispatch(action)};document.querySelectorAll('[data-scenario]').forEach(button=>button.onclick=()=>{scenario=button.dataset.scenario;step=0;state=initial();document.querySelectorAll('[data-scenario]').forEach(tab=>tab.setAttribute('aria-selected',String(tab===button)));render()});render();
+</script></html>

@@ -1,0 +1,19 @@
+@font-face { font-family: "Lens Grotesk"; src: url("/fonts/lens-grotesk/LensGrotesk-Bold.woff2") format("woff2"); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Lens Grotesk"; src: url("/fonts/lens-grotesk/LensGrotesk-BoldItalic.woff2") format("woff2"); font-weight: 700; font-style: italic; font-display: swap; }
+@font-face { font-family: "Lens Grotesk Book"; src: url("/fonts/lens-grotesk/LensGrotesk-Book.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Lens Grotesk Book"; src: url("/fonts/lens-grotesk/LensGrotesk-BookItalic.woff2") format("woff2"); font-weight: 400; font-style: italic; font-display: swap; }
+@font-face { font-family: "Lens Grotesk"; src: url("/fonts/lens-grotesk/LensGrotesk-ExtraLight.woff2") format("woff2"); font-weight: 200; font-style: normal; font-display: swap; }
+@font-face { font-family: "Lens Grotesk"; src: url("/fonts/lens-grotesk/LensGrotesk-ExtraLightItalic.woff2") format("woff2"); font-weight: 200; font-style: italic; font-display: swap; }
+@font-face { font-family: "Lens Grotesk"; src: url("/fonts/lens-grotesk/LensGrotesk-Light.woff2") format("woff2"); font-weight: 300; font-style: normal; font-display: swap; }
+@font-face { font-family: "Lens Grotesk"; src: url("/fonts/lens-grotesk/LensGrotesk-LightItalic.woff2") format("woff2"); font-weight: 300; font-style: italic; font-display: swap; }
+@font-face { font-family: "Lens Grotesk"; src: url("/fonts/lens-grotesk/LensGrotesk-Medium.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: "Lens Grotesk"; src: url("/fonts/lens-grotesk/LensGrotesk-MediumItalic.woff2") format("woff2"); font-weight: 500; font-style: italic; font-display: swap; }
+@font-face { font-family: "Lens Grotesk"; src: url("/fonts/lens-grotesk/LensGrotesk-Regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Lens Grotesk"; src: url("/fonts/lens-grotesk/LensGrotesk-SemiBold.woff2") format("woff2"); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: "Lens Grotesk"; src: url("/fonts/lens-grotesk/LensGrotesk-SemiBoldItalic.woff2") format("woff2"); font-weight: 600; font-style: italic; font-display: swap; }
+@font-face { font-family: "Lens Grotesk"; src: url("/fonts/lens-grotesk/LensGrotesk-Thin.woff2") format("woff2"); font-weight: 100; font-style: normal; font-display: swap; }
+@font-face { font-family: "Lens Grotesk"; src: url("/fonts/lens-grotesk/LensGrotesk-ThinItalic.woff2") format("woff2"); font-weight: 100; font-style: italic; font-display: swap; }
+@font-face { font-family: "Be Vietnam Pro"; src: url("/fonts/be-vietnam-pro/BeVietnamPro-Bold.woff2") format("woff2"); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Be Vietnam Pro"; src: url("/fonts/be-vietnam-pro/BeVietnamPro-Medium.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: "Be Vietnam Pro"; src: url("/fonts/be-vietnam-pro/BeVietnamPro-Regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Be Vietnam Pro"; src: url("/fonts/be-vietnam-pro/BeVietnamPro-SemiBold.woff2") format("woff2"); font-weight: 600; font-style: normal; font-display: swap; }
