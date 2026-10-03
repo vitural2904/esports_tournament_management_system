@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 import { createApplication } from '../server/application.mjs';
 
 const ORIGIN = 'http://127.0.0.1:5173';
@@ -72,4 +73,18 @@ test('repeated failed sign-ins are limited without revealing whether the usernam
     assert.equal((await f.request('/api/login', { method: 'POST', body: { username: 'missing', password } })).status, 401);
   }
   assert.equal((await f.request('/api/login', { method: 'POST', body: { username: 'missing', password } })).status, 429);
+});
+
+test('old-password sign-ins overlapping a password change cannot leave any usable session', async t => {
+  for (let round = 0; round < 3; round++) {
+    const f = await fixture(t);
+    const admin = await f.request('/api/setup', { method: 'POST', body: { username: 'owner', displayName: 'Owner', password } });
+    const changing = f.request('/api/password', { method: 'POST', cookie: admin.cookie, body: { currentPassword: password, newPassword: 'Changed-Concurrent-Password-44!' } });
+    await delay(45);
+    const attempts = Array.from({ length: 8 }, () => f.request('/api/login', { method: 'POST', body: { username: 'owner', password } }));
+    assert.equal((await changing).status, 200);
+    for (const attempt of await Promise.all(attempts)) {
+      if (attempt.cookie) assert.equal((await f.request('/api/me', { cookie: attempt.cookie })).status, 401);
+    }
+  }
 });

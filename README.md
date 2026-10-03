@@ -9,8 +9,6 @@ npm install
 npm run dev
 ```
 
-## UI và animation
-
 ## Bản local có lưu dữ liệu
 
 Yêu cầu Node.js 22.19 trở lên. Bản hiện tại dùng `node:sqlite` của Node 22 (API experimental).

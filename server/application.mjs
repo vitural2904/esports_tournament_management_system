@@ -95,6 +95,9 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
           loginFailures.set(address, { count: current.count + 1, until: current.until });
           fail(401, 'Tên đăng nhập hoặc mật khẩu chưa đúng.');
         }
+        // Password changes may complete while scrypt runs. Never mint a session
+        // from credentials that have been superseded during that wait.
+        if (findUser(user.id)?.password_hash !== user.password_hash) fail(401, 'Tên đăng nhập hoặc mật khẩu chưa đúng.');
         loginFailures.delete(address);
         return send(200, { user: publicUser(user) }, createSession(user));
       }

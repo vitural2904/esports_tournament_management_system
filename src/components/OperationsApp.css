@@ -1,6 +1,7 @@
 .op-shell { min-height: 100vh; position: relative; isolation: isolate; background: var(--surface-base); font-family: var(--font-ui); }
 .op-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 88px; padding: 20px 32px; border-bottom: 1px solid #465248; }
 .op-header > div { display: flex; align-items: center; gap: 20px; font-size: 15px; }
+.op-shell .brand-mark { background: var(--coral-500); }
 .op-shell button { min-height: 44px; border-radius: 6px; border: 1px solid #617569; background: #24322a; padding: 10px 14px; display: inline-flex; align-items: center; justify-content: space-between; gap: 12px; }
 .op-shell button:disabled { cursor: wait; opacity: .6; }
 .op-auth { width: min(100%,540px); margin: 64px auto; padding: 0 20px 40px; }
