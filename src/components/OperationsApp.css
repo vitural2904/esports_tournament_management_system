@@ -25,3 +25,16 @@
 .op-users li { display: grid; gap: 5px; padding: 16px 0; border-top: 1px solid #596b60; }
 .op-users strong { font-weight: 500; font-size: 16px; }.op-users span { font-size: 14px; color: #becab6; }
 @media(max-width:700px) { .op-grid { grid-template-columns: 1fr; }.op-header { padding: 16px; }.op-header .brand { font-size: 22px; padding: 0; }.op-header > div > span { display: none; }.op-auth { margin-top: 30px; padding-inline: 16px; }.op-panel { padding: 24px 20px; }.op-workspace { padding-inline: 16px; }.op-page-title h1 { font-size: 32px; } }
+.op-event-list { display:grid; gap:12px; margin-top:24px; max-height:340px; overflow:auto; }
+.op-event-list button { display:grid; text-align:left; justify-content:start; gap:7px; width:100%; }
+.op-event-list button[aria-pressed=true] { border-color:#c5ddca; background:#3b5140; }
+.op-event-list span { font-size:14px; color:#c6d2c0; }
+.op-count { font-size:16px; font-weight:400; color:#c6d2c0; }
+.op-catalog { list-style:none; margin:24px 0 0; padding:0; max-height:340px; overflow:auto; }
+.op-catalog li { display:flex; justify-content:space-between; align-items:center; gap:12px; border-top:1px solid #596b60; padding:16px 0; }
+.op-catalog li > div { min-width:0; display:grid; gap:6px; }.op-catalog strong { font-weight:500; font-size:16px; overflow-wrap:anywhere; }.op-catalog span { font-size:14px; color:#c0ceb9; }
+.op-registration { margin-top:24px; }.op-registration .op-grid { margin-top:8px; }
+.op-panel select { min-height:48px; padding:12px; font:inherit; font-size:16px; background:#141d17; border:1px solid #657966; border-radius:5px; color:#f0eee8; width:100%; }
+.op-panel fieldset { border:1px solid #596b60; padding:16px; border-radius:6px; margin:0; min-width:0; }.op-panel legend { font-size:15px; padding:0 8px; }
+.op-player-options { display:grid; gap:8px; max-height:300px; overflow:auto; }.op-player-options label { display:flex; align-items:center; gap:12px; min-height:48px; padding:8px 0; }.op-player-options input { min-height:0; width:18px; height:18px; padding:0; accent-color:#bdd7c7; }.op-player-options label > span { display:grid; gap:3px; }
+.op-registered-list article { padding:20px 0; border-bottom:1px solid #596b60; }.op-registered-list h3 { margin:0; font-size:18px; }.op-registered-list h3 span { font-size:14px; color:#c0ceb9; font-weight:400; }.op-registered-list p { overflow-wrap:anywhere; margin:12px 0 16px; }
