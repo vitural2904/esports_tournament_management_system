@@ -6,6 +6,7 @@ import { mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { createDirectory } from './directory.mjs';
 import { createAccess } from './access.mjs';
+import { createFormats } from './formats.mjs';
 
 const derive = promisify(scrypt);
 const SESSION_MS = 12 * 60 * 60 * 1000;
@@ -44,6 +45,7 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
   const findUser = id => db.prepare('SELECT * FROM users WHERE id=?').get(id);
   const directory = createDirectory(db);
   const access = createAccess(db);
+  const formats = createFormats(db, directory);
   const loginFailures = new Map();
   const unknownPassword = await passwordHash(randomBytes(32).toString('hex'));
   const tokenHash = token => createHash('sha256').update(token).digest('hex');
@@ -145,7 +147,7 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
           } catch (error) { if (db.isTransaction) db.exec('ROLLBACK'); throw error; }
         }
       }
-      const tournamentRoute = path.match(/^\/api\/tournaments\/([a-zA-Z0-9-]+)(\/registrations|\/grants)?$/);
+      const tournamentRoute = path.match(/^\/api\/tournaments\/([a-zA-Z0-9-]+)(\/registrations|\/grants|\/format|\/lock)?$/);
       if (tournamentRoute) {
         const [, id, registrations] = tournamentRoute;
         if (registrations === '/grants') {
@@ -155,7 +157,12 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
           if (method === 'POST') return send(200, { grant: access.save(id, await jsonBody(request)) });
         }
         access.requireRole(user, id);
-        if (method === 'GET' && !registrations) return send(200, { tournament: { ...directory.tournament(id), roles: access.roles(user, id) } });
+        if (method === 'GET' && !registrations) return send(200, { tournament: { ...formats.read(id), roles: access.roles(user, id) } });
+        if (method === 'POST' && ['/format', '/lock'].includes(registrations)) {
+          const body = await jsonBody(request);
+          access.requireRole(user, id, 'operator');
+          return send(200, { tournament: { ...formats.update(id, body, registrations === '/lock'), roles: access.roles(user, id) } });
+        }
         if (method === 'POST' && registrations === '/registrations') {
           const body = await jsonBody(request);
           access.requireRole(user, id, 'operator');

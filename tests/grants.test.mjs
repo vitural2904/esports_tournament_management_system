@@ -19,6 +19,7 @@ test('tournament grants isolate reads and writes, combine roles, persist, and re
   assert.deepEqual(list[0].roles, ['entry']);
   assert.equal((await f.request(`/api/tournaments/${second.id}`, { cookie: member })).status, 403);
   assert.equal((await f.request(`/api/tournaments/${first.id}/registrations`, { method: 'POST', cookie: member, body: {} })).status, 403);
+  for (const command of ['format', 'lock']) assert.equal((await f.request(`/api/tournaments/${first.id}/${command}`, { method: 'POST', cookie: member, body: {} })).status, 403);
   assert.equal((await f.request(grantPath, { method: 'POST', cookie: member, body: { userId: user.id, roles: ['operator'], revision: 1 } })).status, 403);
   assert.equal((await assign({ roles: ['operator', 'entry'], revision: 1 })).status, 200);
   assert.equal((await assign({ roles: ['entry'], revision: 1 })).status, 409);

@@ -6,6 +6,7 @@ import { Check, Plus, Pencil, Users } from "lucide-react";
 import { api } from "../lib/api";
 import type { Player, Team, Tournament } from "../lib/api";
 import TournamentGrants from "./TournamentGrants";
+import FormatBuilder from "./FormatBuilder";
 
 export default function DirectoryWorkspace({ admin = false }: { admin?: boolean }) {
   const [teams, setTeams] = useState<Team[]>([]);
@@ -59,6 +60,7 @@ export default function DirectoryWorkspace({ admin = false }: { admin?: boolean 
   function togglePlayer(id: string) { setSelectedPlayers(current => current.includes(id) ? current.filter(value => value !== id) : [...current, id]); }
   const submit = (label: string) => <motion.button className="op-primary" type="submit" disabled={busy} whileTap={{ scale: .98 }}>{busy ? "Đang lưu…" : label}<Check size={17} /></motion.button>;
   return <section className="op-directory" aria-label="Danh bạ và đăng ký giải">
+    {tournament && <FormatBuilder key={`format-${tournament.id}`} tournamentId={tournament.id} revision={tournament.revision} onSaved={refresh} />}
     {admin && tournament && <TournamentGrants key={tournament.id} tournamentId={tournament.id} />}
     {error && <p role="alert" className="op-error">{error}</p>}{notice && <p role="status" className="op-notice">{notice}</p>}
     <div className="op-grid"><section className="op-panel"><h2><Plus size={20} /> Giải đấu</h2><p>Tạo giải mới. Đăng ký đội và tuyển thủ riêng cho mùa này.</p><form onSubmit={createTournament}><label>Tên giải<input name="name" required maxLength={120} placeholder="Community Cup 2026" /></label>{submit("Tạo giải")}</form></section>
