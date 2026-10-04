@@ -15,6 +15,23 @@ async function tournament(f, cookie, count, kind, customize = format => format) 
   await f.request(`/api/tournaments/${event.id}/lock`, { method: 'POST', cookie, body: { revision: saved.revision } });
   return { id: event.id, ids };
 }
+
+test('a final stage with independent groups cannot lock before adding a championship stage', async t => {
+  const f = await fixture(t), cookie = await owner(f);
+  const event = (await f.request('/api/tournaments', { method: 'POST', cookie, body: { name: 'No champion yet' } })).body.tournament;
+  const ids = [];
+  for (let i = 0; i < 4; i++) {
+    const team = (await f.request('/api/teams', { method: 'POST', cookie, body: { name: `Final team ${i}`, tag: `F${i}` } })).body.team;
+    ids.push(team.id); await f.request(`/api/tournaments/${event.id}/registrations`, { method: 'POST', cookie, body: { teamId: team.id, playerIds: [], revision: 0 } });
+  }
+  const format = createPreset('round_robin', ids);
+  format.stages[0].groups = [{ id: 'A', name: 'A', inputs: format.stages[0].groups[0].inputs.slice(0, 2) }, { id: 'B', name: 'B', inputs: format.stages[0].groups[0].inputs.slice(2) }];
+  const current = (await f.request(`/api/tournaments/${event.id}`, { cookie })).body.tournament;
+  const saved = await f.request(`/api/tournaments/${event.id}/format`, { method: 'POST', cookie, body: { revision: current.revision, format } });
+  assert.equal(saved.status, 200);
+  assert.equal((await f.request(`/api/tournaments/${event.id}/lock`, { method: 'POST', cookie, body: { revision: saved.body.tournament.revision } })).status, 400);
+  assert.equal((await list(f, cookie, event.id)).length, 0);
+});
 async function play(f, cookie, tournamentId, match, winnerId) {
   const path = `/api/tournaments/${tournamentId}/matches/${encodeURIComponent(match.id)}`;
   for (let n = 1; n <= (match.bo + 1) / 2; n++) {

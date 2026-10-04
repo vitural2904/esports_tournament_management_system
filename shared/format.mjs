@@ -123,6 +123,8 @@ export function compileFormat(input, teamIds, { requireAllTeams = false } = {}) 
     const first = stages[0];
     const initial = first.type === 'round_robin' ? first.groups.flatMap(group => group.inputs) : first.inputs;
     if (initial.length !== registered.size || initial.some(value => value.kind !== 'team') || new Set(initial.map(value => value.teamId)).size !== registered.size) invalid('Giai đoạn đầu cần chứa đúng tất cả đội đã đăng ký.');
+    const last = stages.at(-1);
+    if (last.type === 'round_robin' && last.groups.length !== 1) invalid('Giai đoạn cuối cần xác định một nhà vô địch. Gộp thành một bảng hoặc thêm giai đoạn loại trực tiếp/loại kép.');
   }
   return { format: { version: 1, stages }, matches };
 }
