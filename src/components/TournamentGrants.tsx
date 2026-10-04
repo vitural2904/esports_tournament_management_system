@@ -5,7 +5,7 @@ import type { Account, Grant, TournamentRole } from "../lib/api";
 
 export default function TournamentGrants({ tournamentId, organizationAccounts }: { tournamentId: string; organizationAccounts?: Account[] }) {
   const [loadedAccounts, setAccounts] = useState<Account[]>([]);
-  const accounts = (organizationAccounts || loadedAccounts).filter(user => !user.admin);
+  const accounts = (organizationAccounts || loadedAccounts).filter(user => !user.admin && !user.disabled);
   const [grants, setGrants] = useState<Grant[]>([]);
   const [selected, setSelected] = useState("");
   const [roles, setRoles] = useState<TournamentRole[]>([]);
@@ -15,7 +15,7 @@ export default function TournamentGrants({ tournamentId, organizationAccounts }:
   useEffect(() => {
     let current = true;
     void Promise.all([api<{ users: Account[] }>("/users"), api<{ grants: Grant[] }>(`/tournaments/${tournamentId}/grants`)]).then(([users, result]) => {
-      if (current) { setAccounts(users.users.filter(user => !user.admin)); setGrants(result.grants); }
+      if (current) { setAccounts(users.users.filter(user => !user.admin && !user.disabled)); setGrants(result.grants); }
     }).catch(problem => { if (current) setError(problem.message); }).finally(() => { if (current) setBusy(false); });
     return () => { current = false; };
   }, [tournamentId]);

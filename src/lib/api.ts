@@ -1,4 +1,5 @@
-export type Account = { id: string; username: string; displayName: string; admin: boolean; mustChangePassword: boolean };
+export type Account = { id: string; username: string; displayName: string; admin: boolean; mustChangePassword: boolean; disabled: boolean; revision: number; grants?: { tournamentId: string; tournamentName: string; roles: TournamentRole[]; revision: number }[] };
+export type AccountHistoryItem = { id: string; action: string; actor: { id: string; displayName: string }; before: Record<string, unknown> | null; after: Record<string, unknown>; createdAt: string };
 export type Team = { id: string; name: string; tag: string; revision: number; archived: boolean };
 export type Player = { id: string; name: string; handle: string; revision: number; archived: boolean };
 export type Registration = { team: Pick<Team, "id" | "name" | "tag">; players: Pick<Player, "id" | "name" | "handle">[]; revision: number; lockedAt: string | null };

@@ -12,11 +12,11 @@ import { createHistory } from './history.mjs';
 import { createChanges } from './changes.mjs';
 import { createRosters } from './rosters.mjs';
 import { migrate } from './migrations.mjs';
+import { createAccounts, publicUser } from './accounts.mjs';
 
 const derive = promisify(scrypt);
 const SESSION_MS = 12 * 60 * 60 * 1000;
 function fail(status, message) { throw Object.assign(new Error(message), { status }); }
-const publicUser = row => ({ id: row.id, username: row.username, displayName: row.display_name, admin: Boolean(row.admin), mustChangePassword: Boolean(row.must_change) });
 async function passwordHash(password, salt = randomBytes(16).toString('hex')) {
   const value = await derive(password, salt, 64);
   return `${salt}:${value.toString('hex')}`;
@@ -47,8 +47,9 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
     migrate(db);
   } catch (error) { db.close(); throw error; }
   const findUser = id => db.prepare('SELECT * FROM users WHERE id=?').get(id);
+  const accounts = createAccounts(db);
   const directory = createDirectory(db);
-  const access = createAccess(db);
+  const access = createAccess(db, accounts);
   const formats = createFormats(db, directory);
   const results = createResults(db, directory);
   const history = createHistory(db);
@@ -70,7 +71,7 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
     const session = db.prepare('SELECT user_id FROM sessions WHERE token_hash=? AND expires_at>?').get(tokenHash(token), Date.now());
     if (!session) fail(401, 'Phiên đã hết hạn. Đăng nhập lại.');
     const user = findUser(session.user_id);
-    if (!user) fail(401, 'Tài khoản không còn tồn tại.');
+    if (!user || user.disabled) fail(401, 'Tài khoản không còn hoạt động.');
     return user;
   }
   async function handle(request, response) {
@@ -89,7 +90,8 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
         try {
           if (db.prepare('SELECT COUNT(*) AS count FROM users').get().count) fail(409, 'Đã tạo quản trị đầu tiên.');
           const id = randomUUID();
-          db.prepare('INSERT INTO users VALUES (?,?,?,?,1,0)').run(id, body.username.toLowerCase(), body.displayName.trim(), hash);
+          db.prepare('INSERT INTO users(id,username,display_name,password_hash,admin,must_change) VALUES (?,?,?,?,1,0)').run(id, body.username.toLowerCase(), body.displayName.trim(), hash);
+          accounts.record(id, id, 'account_created', null, publicUser(findUser(id)));
           db.exec('COMMIT');
           const user = findUser(id);
           return send(201, { user: publicUser(user) }, createSession(user));
@@ -102,7 +104,7 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
         const body = await jsonBody(request); credentials(body);
         const user = db.prepare('SELECT * FROM users WHERE username=?').get(body.username);
         const matches = await passwordMatches(body.password, user?.password_hash ?? unknownPassword);
-        if (!user || !matches) {
+        if (!user || !matches || user.disabled) {
           // Read the latest count after hashing so overlapping attempts also accumulate.
           const latest = loginFailures.get(address);
           const current = latest && latest.until > Date.now() ? latest : { count: 0, until: Date.now() + 15 * 60 * 1000 };
@@ -111,11 +113,18 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
         }
         // Password changes may complete while scrypt runs. Never mint a session
         // from credentials that have been superseded during that wait.
-        if (findUser(user.id)?.password_hash !== user.password_hash) fail(401, 'Tên đăng nhập hoặc mật khẩu chưa đúng.');
+        const fresh = findUser(user.id);
+        if (!fresh || fresh.disabled || fresh.password_hash !== user.password_hash || fresh.revision !== user.revision) fail(401, 'Tên đăng nhập hoặc mật khẩu chưa đúng.');
         loginFailures.delete(address);
         return send(200, { user: publicUser(user) }, createSession(user));
       }
-      const user = currentUser(request);
+      let user = currentUser(request);
+      async function authenticatedBody(allowPasswordChange = false) {
+        const body = await jsonBody(request);
+        user = currentUser(request);
+        if (user.must_change && !allowPasswordChange) fail(403, 'Đổi mật khẩu trước khi dùng ứng dụng.');
+        return body;
+      }
       if (path === '/api/me' && method === 'GET') return send(200, { user: publicUser(user) });
       if (path === '/api/logout' && method === 'POST') {
         // Revoke this browser's session; other devices may remain signed in.
@@ -124,17 +133,19 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
         return send(200, { ok: true }, sessionCookie('', 0));
       }
       if (path === '/api/password' && method === 'POST') {
-        const body = await jsonBody(request);
+        const body = await authenticatedBody(true);
         if (typeof body.currentPassword !== 'string' || body.currentPassword.length > 128 || !await passwordMatches(body.currentPassword, user.password_hash)) fail(400, 'Mật khẩu hiện tại chưa đúng.');
         credentials({ username: user.username, password: body.newPassword });
         if (body.newPassword === body.currentPassword) fail(400, 'Mật khẩu mới cần khác mật khẩu cũ.');
         const hash = await passwordHash(body.newPassword);
+        currentUser(request);
         db.exec('BEGIN IMMEDIATE');
         try {
           // An overlapping password change must not overwrite the newer password.
           if (findUser(user.id).password_hash !== user.password_hash) fail(409, 'Mật khẩu vừa thay đổi. Đăng nhập lại.');
-          db.prepare('UPDATE users SET password_hash=?,must_change=0 WHERE id=?').run(hash, user.id);
+          db.prepare('UPDATE users SET password_hash=?,must_change=0,revision=revision+1 WHERE id=?').run(hash, user.id);
           db.prepare('DELETE FROM sessions WHERE user_id=?').run(user.id);
+          accounts.record(user.id, user.id, 'password_changed', publicUser(user), publicUser(findUser(user.id)));
           db.exec('COMMIT');
         } catch (error) { if (db.isTransaction) db.exec('ROLLBACK'); throw error; }
         const updated = findUser(user.id);
@@ -143,7 +154,7 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
       if (user.must_change) fail(403, 'Đổi mật khẩu trước khi dùng ứng dụng.');
       const rosterRoute = path.match(/^\/api\/tournaments\/([a-zA-Z0-9-]+)\/registrations\/([a-zA-Z0-9-]+)\/additions$/);
       if (rosterRoute && method === 'POST') {
-        const body = await jsonBody(request);
+        const body = await authenticatedBody();
         access.requireRole(user, rosterRoute[1], 'operator');
         return send(200, { registration: rosters.approve(rosterRoute[1], rosterRoute[2], body, user.id) });
       }
@@ -156,7 +167,7 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
       const changeRoute = path.match(/^\/api\/tournaments\/([a-zA-Z0-9-]+)\/matches\/([^/]+)\/changes\/(preview|apply)$/);
       if (changeRoute && method === 'POST') {
         const [, id, encodedMatchId, action] = changeRoute;
-        const body = await jsonBody(request);
+        const body = await authenticatedBody();
         access.requireRole(user, id, 'operator');
         let matchId;
         try { matchId = decodeURIComponent(encodedMatchId); } catch { fail(400, 'Mã trận không hợp lệ.'); }
@@ -174,7 +185,7 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
           return send(200, matchId ? { match: current.read(matchId) } : { matches: current.list() });
         }
         if (method === 'POST') {
-          const body = await jsonBody(request);
+          const body = await authenticatedBody();
           access.requireRole(user, id, section === 'schedule' || action === 'confirm' ? 'operator' : 'entry');
           if (section === 'schedule' && !matchId) return send(200, { matches: results.schedule(id, body) });
           if (section === 'matches' && matchId && action) return send(200, { game: results.game(id, matchId, Number(number), action, body, user.id) });
@@ -183,12 +194,12 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
       if (path === '/api/tournaments') {
         if (method === 'GET') return send(200, { tournaments: directory.tournaments().map(event => ({ ...event, roles: access.roles(user, event.id) })).filter(event => event.roles.length) });
         if (method === 'POST') {
-          const body = await jsonBody(request);
+          const body = await authenticatedBody();
           if (!access.managesDirectory(user)) fail(403, 'Chưa có quyền tạo giải.');
           db.exec('BEGIN IMMEDIATE');
           try {
             const tournament = directory.createTournament(body);
-            if (!user.admin) access.save(tournament.id, { userId: user.id, roles: ['operator'], revision: 0 });
+            if (!user.admin) access.save(tournament.id, { userId: user.id, roles: ['operator'], revision: 0 }, user.id);
             db.exec('COMMIT');
             return send(201, { tournament: { ...tournament, roles: access.roles(user, tournament.id) } });
           } catch (error) { if (db.isTransaction) db.exec('ROLLBACK'); throw error; }
@@ -201,17 +212,21 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
           if (!user.admin) fail(403, 'Chỉ quản trị được cấp quyền.');
           directory.tournament(id);
           if (method === 'GET') return send(200, { grants: access.list(id) });
-          if (method === 'POST') return send(200, { grant: access.save(id, await jsonBody(request)) });
+          if (method === 'POST') {
+            const body = await authenticatedBody();
+            accounts.requireAdmin(user.id);
+            return send(200, { grant: access.save(id, body, user.id) });
+          }
         }
         access.requireRole(user, id);
         if (method === 'GET' && !registrations) return send(200, { tournament: { ...formats.read(id), roles: access.roles(user, id) } });
         if (method === 'POST' && ['/format', '/lock'].includes(registrations)) {
-          const body = await jsonBody(request);
+          const body = await authenticatedBody();
           access.requireRole(user, id, 'operator');
           return send(200, { tournament: { ...formats.update(id, body, registrations === '/lock'), roles: access.roles(user, id) } });
         }
         if (method === 'POST' && registrations === '/registrations') {
-          const body = await jsonBody(request);
+          const body = await authenticatedBody();
           access.requireRole(user, id, 'operator');
           const result = directory.register(id, body);
           return send(result.created ? 201 : 200, { registration: result.registration });
@@ -224,21 +239,40 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
       const directoryRoute = path.match(/^\/api\/(teams|players)(?:\/([a-zA-Z0-9-]+))?$/);
       if (directoryRoute && method === 'POST') {
         const [, kind, id] = directoryRoute;
-        const body = await jsonBody(request);
+        const body = await authenticatedBody();
         if (!access.managesDirectory(user)) fail(403, 'Chưa có quyền sửa danh bạ.');
         const record = directory.save(kind, body, id);
         return send(id ? 200 : 201, { [kind === 'teams' ? 'team' : 'player']: record });
       }
+      const accountRoute = path.match(/^\/api\/users\/([a-zA-Z0-9-]+)(?:\/(history|reset-password|revoke-sessions))?$/);
+      if (accountRoute) {
+        accounts.requireAdmin(user.id);
+        if (method === 'GET' && accountRoute[2] === 'history') return send(200, { history: accounts.history(accountRoute[1]) });
+        if (method === 'POST' && !accountRoute[2]) return send(200, { user: accounts.update(accountRoute[1], await authenticatedBody(), user.id) });
+        if (method === 'POST' && ['reset-password', 'revoke-sessions'].includes(accountRoute[2])) {
+          const body = await authenticatedBody();
+          let hash;
+          if (accountRoute[2] === 'reset-password') { credentials({ username: 'unused', password: body.password }); hash = await passwordHash(body.password); }
+          user = currentUser(request);
+          return send(200, { user: accounts.credentials(accountRoute[1], body, user.id, hash) });
+        }
+      }
       if (path === '/api/users') {
         if (!user.admin) fail(403, 'Chỉ quản trị được quản lý tài khoản.');
-        if (method === 'GET') return send(200, { users: db.prepare('SELECT * FROM users ORDER BY username').all().map(publicUser) });
+        if (method === 'GET') return send(200, { users: accounts.list() });
         if (method === 'POST') {
-          const body = await jsonBody(request); credentials(body);
+          const body = await authenticatedBody(); credentials(body);
           if (typeof body.displayName !== 'string' || !body.displayName.trim() || body.displayName.length > 80) fail(400, 'Nhập tên hiển thị tối đa 80 ký tự.');
           const hash = await passwordHash(body.password);
           const id = randomUUID();
-          try { db.prepare('INSERT INTO users VALUES (?,?,?,?,0,1)').run(id, body.username.toLowerCase(), body.displayName.trim(), hash); }
-          catch (error) { if (error.code === 'ERR_SQLITE_ERROR' && /UNIQUE/.test(error.message)) fail(409, 'Tên đăng nhập đã có.'); throw error; }
+          user = currentUser(request);
+          db.exec('BEGIN IMMEDIATE');
+          try {
+            accounts.requireAdmin(user.id);
+            db.prepare('INSERT INTO users(id,username,display_name,password_hash,admin,must_change) VALUES (?,?,?,?,0,1)').run(id, body.username.toLowerCase(), body.displayName.trim(), hash);
+            accounts.record(id, user.id, 'account_created', null, publicUser(findUser(id)));
+            db.exec('COMMIT');
+          } catch (error) { if (db.isTransaction) db.exec('ROLLBACK'); if (error.code === 'ERR_SQLITE_ERROR' && /UNIQUE/.test(error.message)) fail(409, 'Tên đăng nhập đã có.'); throw error; }
           return send(201, { user: publicUser(findUser(id)) });
         }
       }

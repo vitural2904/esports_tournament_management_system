@@ -1,0 +1,21 @@
+.account-admin { display:grid; gap:24px; }
+.account-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
+.account-filters { display:grid; grid-template-columns:minmax(0,1fr) 190px; gap:20px; margin:24px 0; }
+.account-filters label > span { display:flex; align-items:center; gap:8px; }
+.account-table { overflow:auto; margin-top:20px; }
+.account-table table { width:100%; min-width:650px; border-collapse:collapse; font-size:15px; line-height:1.6; }
+.account-table th,.account-table td { padding:16px 12px; text-align:left; border-bottom:1px solid #596b60; vertical-align:top; }
+.account-table td > span { display:block; color:#becab6; }
+.account-table strong { display:block; font-weight:600; }
+.account-table button[aria-pressed=true] { border-color:var(--mint-300); }
+.account-detail fieldset,.account-admin > section:last-child fieldset { display:grid; gap:20px; }
+.account-security { display:flex; flex-wrap:wrap; gap:12px; margin-top:24px; }
+.op-panel .account-check { display:flex; align-items:center; gap:12px; min-height:44px; }
+.op-panel .account-check input { width:18px; height:18px; min-height:0; padding:0; accent-color:var(--mint-300); }
+.account-detail h3 { margin-top:32px; font-size:20px; }
+.account-history { list-style:none; padding:0; margin:20px 0 0; }
+.account-history li { display:grid; gap:8px; padding:16px 0; border-top:1px solid #596b60; font-size:15px; line-height:1.6; overflow-wrap:anywhere; }
+.account-history span { color:#becab6; }
+.op-admin-nav { display:flex; gap:12px; margin-bottom:24px; flex-wrap:wrap; }
+.op-admin-nav button[aria-current=page] { color:#18221b; background:var(--mint-300); }
+@media(max-width:700px) { .account-filters { grid-template-columns:1fr; }.account-heading { flex-wrap:wrap; }.account-table th,.account-table td { padding:12px 8px; } }

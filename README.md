@@ -76,3 +76,9 @@ Bản này chạy trên máy tổ chức. Chưa có hosting, HTTPS hay truy cậ
 - Motion: animation và tương tác trong React.
 - AutoAnimate: chuyển động khi danh sách thay đổi.
 - Thêm component React Bits qua registry `@react-bits` trong `components.json`.
+
+## Quản trị tài khoản
+
+Mở `?app=operations&view=accounts` sau khi đăng nhập quản trị. Có tìm kiếm, trạng thái, quyền theo giải, cấp tài khoản, chỉnh tên/quyền quản trị, khóa/mở, mật khẩu tạm, thu hồi phiên và lịch sử. API không trả mật khẩu hoặc bản băm. Mọi sửa kiểm tra revision. Không tự khóa/đổi quyền quản trị tại bảng; tự đổi mật khẩu và đăng xuất dùng nút trên đầu trang. Luôn giữ quản trị hoạt động.
+
+Khóa, reset mật khẩu, đổi quyền quản trị và thu hồi phiên vô hiệu phiên cũ. Reset buộc thành viên đổi mật khẩu. Quyền theo giải được kiểm tra lại mỗi request. Không xóa tài khoản đã có lịch sử. Thông tin tài khoản thử và mật khẩu chỉ ở `.local/`, không nằm trong Git. [Phạm vi](docs/specs/admin-accounts.md).

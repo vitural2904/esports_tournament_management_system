@@ -14,6 +14,10 @@ const migrations = [
 // v8 reconciles legacy startup DDL. Earlier builds wrote v1/v2 markers
 // before all their tables existed; this one-time repair runs atomically.
 migrations.push(migrations.join('\n') + '\nCREATE INDEX IF NOT EXISTS history_by_tournament ON history(tournament_id);');
+migrations.push(`ALTER TABLE users ADD COLUMN disabled INTEGER NOT NULL DEFAULT 0;
+ ALTER TABLE users ADD COLUMN revision INTEGER NOT NULL DEFAULT 1;
+ CREATE TABLE account_history (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), actor_id TEXT NOT NULL REFERENCES users(id), action TEXT NOT NULL, before_json TEXT NOT NULL, after_json TEXT NOT NULL, created_at TEXT NOT NULL);
+ CREATE INDEX account_history_by_user ON account_history(user_id);`);
 
 export function migrate(db) {
   db.exec('BEGIN IMMEDIATE');
