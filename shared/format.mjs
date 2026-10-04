@@ -76,8 +76,8 @@ export function compileFormat(input, teamIds, { requireAllTeams = false } = {}) 
       if ((count & (count - 1)) !== 0) invalid('Nhánh loại cần 2, 4, 8, 16, 32 hoặc 64 nguồn đội.');
       stage.finalBo = bo(raw.finalBo ?? stage.bo);
       if (stage.type === 'double_elimination') {
-        if (typeof raw.reset !== 'boolean') invalid('Chọn có hoặc không reset chung kết.');
-        stage.reset = raw.reset;
+        if (raw.reset !== true) invalid('Loại kép cần reset chung kết để giữ điều kiện loại sau hai trận thua.');
+        stage.reset = true;
       }
       const upper = [];
       let entrants = stage.inputs, upperIndex = 0;

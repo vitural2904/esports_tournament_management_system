@@ -32,6 +32,20 @@ test('a final stage with independent groups cannot lock before adding a champion
   assert.equal((await f.request(`/api/tournaments/${event.id}/lock`, { method: 'POST', cookie, body: { revision: saved.body.tournament.revision } })).status, 400);
   assert.equal((await list(f, cookie, event.id)).length, 0);
 });
+
+test('double elimination rejects no-reset finals because the upper finalist must lose twice', async t => {
+  const f = await fixture(t), cookie = await owner(f);
+  const event = (await f.request('/api/tournaments', { method: 'POST', cookie, body: { name: 'Two-loss Cup' } })).body.tournament;
+  const ids = [];
+  for (let i = 0; i < 2; i++) {
+    const team = (await f.request('/api/teams', { method: 'POST', cookie, body: { name: `Reset Team ${i}`, tag: `R${i}` } })).body.team;
+    ids.push(team.id); await f.request(`/api/tournaments/${event.id}/registrations`, { method: 'POST', cookie, body: { teamId: team.id, playerIds: [], revision: 0 } });
+  }
+  const format = createPreset('double_elimination', ids); format.stages[0].reset = false;
+  const current = (await f.request(`/api/tournaments/${event.id}`, { cookie })).body.tournament;
+  assert.equal((await f.request(`/api/tournaments/${event.id}/format`, { method: 'POST', cookie, body: { revision: current.revision, format } })).status, 400);
+  assert.equal((await f.request(`/api/tournaments/${event.id}`, { cookie })).body.tournament.format, null);
+});
 async function play(f, cookie, tournamentId, match, winnerId) {
   const path = `/api/tournaments/${tournamentId}/matches/${encodeURIComponent(match.id)}`;
   for (let n = 1; n <= (match.bo + 1) / 2; n++) {

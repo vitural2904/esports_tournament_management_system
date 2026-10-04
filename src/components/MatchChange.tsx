@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { api } from "../lib/api";
 import type { GameData, Match, Tournament } from "../lib/api";
@@ -10,15 +10,16 @@ export type ChangeKind = "game_edit" | "game_walkover" | "match_walkover";
 type Preview = { before: Match; after: Match; affected: { id: string; startedAt: string | null; before: { teams: (string | null)[] }; after: { teams: (string | null)[] } }[]; newMatches: { id: string; sources: { teamId: string }[] }[]; blocked: boolean; previewToken: string | null };
 const titles = { game_edit: "Sửa game đã xác nhận", game_walkover: "Xử thắng game", match_walkover: "Xử thắng cả trận" };
 
-export default function MatchChange({ event, match, number, data, kind, busy, onBusy, onApplied, onCancel }: { event: Tournament; match: Match; number: number; data: GameData; kind: ChangeKind; busy: boolean; onBusy: (value: boolean) => void; onApplied: () => Promise<void>; onCancel: () => void }) {
+export default function MatchChange({ event, match, number, gameRevision, data, kind, busy, onBusy, onApplied, onCancel }: { event: Tournament; match: Match; number: number; gameRevision: number; data: GameData; kind: ChangeKind; busy: boolean; onBusy: (value: boolean) => void; onApplied: () => Promise<void>; onCancel: () => void }) {
   const [reason, setReason] = useState("");
   const [winnerId, setWinnerId] = useState("");
   const [preview, setPreview] = useState<Preview | null>(null);
   const [error, setError] = useState("");
   const reduced = useReducedMotion();
-  const game = match.games.find(game => game.number === number);
+  const initialMatchRevision = useRef(match.revision);
+  const initialGameRevision = useRef(gameRevision);
   const teamName = (id: string | null) => event.registrations.find(item => item.team.id === id)?.team.name || "Chưa xác định";
-  const command = { kind, matchRevision: match.revision, number, gameRevision: game?.revision || 0, reason, ...(kind === "game_edit" ? { data } : { winnerId }) };
+  const command = { kind, matchRevision: initialMatchRevision.current, number, gameRevision: initialGameRevision.current, reason, ...(kind === "game_edit" ? { data } : { winnerId }) };
   const commandKey = JSON.stringify(command);
   useEffect(() => { setPreview(null); }, [commandKey]);
   async function act(apply = false) {

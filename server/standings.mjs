@@ -2,25 +2,22 @@ import { createHash } from 'node:crypto';
 
 // Equal points are compared only within that tied set. Stable input order is
 // presentation order, never an implicit competitive tiebreak.
-function tiers(teamIds, matches) {
-  const points = new Map(teamIds.map(id => [id, 0]));
-  for (const match of matches) if (points.has(match.winnerId)) points.set(match.winnerId, points.get(match.winnerId) + 1);
+function scoreBuckets(teamIds, scores) {
   const buckets = new Map();
   for (const id of teamIds) {
-    const value = points.get(id);
+    const value = scores.get(id);
     if (!buckets.has(value)) buckets.set(value, []);
     buckets.get(value).push(id);
   }
-  return [...buckets].sort(([a], [b]) => b - a).flatMap(([, ids]) => {
+  return [...buckets].sort(([a], [b]) => b - a).map(([, ids]) => ids);
+}
+function tiers(teamIds, matches) {
+  const points = new Map(teamIds.map(id => [id, 0]));
+  for (const match of matches) if (points.has(match.winnerId)) points.set(match.winnerId, points.get(match.winnerId) + 1);
+  return scoreBuckets(teamIds, points).flatMap(ids => {
     const head = new Map(ids.map(id => [id, 0]));
     for (const match of matches) if (match.teams.every(id => head.has(id)) && head.has(match.winnerId)) head.set(match.winnerId, head.get(match.winnerId) + 1);
-    const tied = new Map();
-    for (const id of ids) {
-      const value = head.get(id);
-      if (!tied.has(value)) tied.set(value, []);
-      tied.get(value).push(id);
-    }
-    return [...tied].sort(([a], [b]) => b - a).map(([, ids]) => ids);
+    return scoreBuckets(ids, head);
   });
 }
 
