@@ -7,6 +7,7 @@ import CompetitionProgress from "./CompetitionProgress";
 import MatchChange from "./MatchChange";
 import type { ChangeKind } from "./MatchChange";
 import ResultHistory from "./ResultHistory";
+import RosterHistory from "./RosterHistory";
 import { matchName } from "../lib/competition-labels";
 import type { Source } from "../../shared/format.mjs";
 import "./MatchOperations.css";
@@ -16,7 +17,7 @@ const gameStates = { draft: "Nháp", submitted: "Chờ xác nhận", confirmed: 
 const pickFields = { bluePicks: "Xanh chọn", redPicks: "Đỏ chọn", blueBans: "Xanh cấm", redBans: "Đỏ cấm" };
 type PickText = Partial<Record<keyof typeof pickFields, string>>;
 
-export default function MatchOperations({ tournamentId, revision }: { tournamentId: string; revision?: number }) {
+export default function MatchOperations({ tournamentId, revision, onEventChanged }: { tournamentId: string; revision?: number; onEventChanged?: () => Promise<void> }) {
   const [event, setEvent] = useState<Tournament | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
   const [standings, setStandings] = useState<Standings | null>(null);
@@ -86,6 +87,7 @@ export default function MatchOperations({ tournamentId, revision }: { tournament
     setMatches(result.matches);
     setStandings(ranking);
     setHistory(audit.history);
+    await onEventChanged?.();
     if (discard) { const current = result.matches.find(item => item.id === selectedId); if (current) open(current, number, true); }
     return result.matches;
   }
@@ -131,6 +133,6 @@ export default function MatchOperations({ tournamentId, revision }: { tournament
     <details className="mo-optional"><summary>Thông tin tùy chọn</summary><fieldset disabled={busy || !fieldsEditable}><legend>Dữ liệu game</legend><label>Thời lượng · giây<input type="number" min={0} max={86400} value={draft.durationSeconds ?? ""} onChange={event => patch({ durationSeconds: event.target.value === "" ? undefined : Number(event.target.value) })} /></label><label>Phiên bản game<input maxLength={40} value={draft.patch || ""} onChange={event => patch({ patch: event.target.value || undefined })} /></label>{(["blueTeamId", "redTeamId"] as const).map(field => <label key={field}>{field === "blueTeamId" ? "Bên xanh" : "Bên đỏ"}<select value={draft[field] || ""} onChange={event => patch({ [field]: event.target.value || undefined })}><option value="">Chưa nhập</option>{match.teams.map(id => <option key={id} value={id || ""}>{teamName(id)}</option>)}</select></label>)}
     {match.teams.map(id => <section key={id}><h4>Đội hình · {teamName(id)}</h4><div className="op-player-options">{event?.registrations.find(item => item.team.id === id)?.players.map(player => <label key={player.id}><input type="checkbox" checked={draft.lineups?.[id || ""]?.includes(player.id) || false} onChange={() => { if (!id) return; const players = draft.lineups?.[id] || []; patch({ lineups: { ...draft.lineups, [id]: players.includes(player.id) ? players.filter(value => value !== player.id) : [...players, player.id] } }); }} /><span>{player.handle}</span></label>)}</div></section>)}{(Object.keys(pickFields) as (keyof typeof pickFields)[]).map(field => <label key={field}>{pickFields[field]}<input placeholder="Ahri, Jinx…" value={pickText[field] || ""} onChange={event => { setPickText(current => ({ ...current, [field]: event.target.value })); patch({ pickBan: { ...draft.pickBan, [field]: event.target.value.split(",").map(value => value.trim()).filter(Boolean) } }); }} /></label>)}<small>Tên tướng cách nhau bằng dấu phẩy. Tối đa 5 tướng mỗi ô.</small></fieldset></details>
     <div className="mo-actions">{gameEditable && <><motion.button type="button" disabled={busy} whileTap={{ scale: .98 }} onClick={() => void gameCommand("save")}><Save size={17} />Lưu nháp</motion.button><motion.button type="submit" className="op-primary" disabled={busy || !draft.winnerId} whileTap={{ scale: .98 }}><Send size={17} />Gửi kết quả</motion.button></>}{canConfirm && !match.decision && ["ready", "in_progress"].includes(match.status) && baseGame?.state === "submitted" && <motion.button type="button" className="op-primary" disabled={busy} whileTap={{ scale: .98 }} onClick={() => void gameCommand("confirm")}><Check size={17} />Xác nhận game</motion.button>}</div></form>}{match.decision && <p className="op-notice">Xử thắng cả trận · {teamName(match.decision.winnerId || null)} · {match.decision.reason}</p>}{baseGame?.decision && <p className="op-notice">Xử thắng game · {baseGame.decision.reason}</p>}{canConfirm && !["waiting", "skipped"].includes(match.status) && <><div className="mc-change-buttons">{baseGame?.state === "confirmed" && <button type="button" disabled={busy} onClick={() => setCorrectionKind("game_edit")}>Sửa game đã xác nhận</button>}{!match.decision && (baseGame || match.status !== "completed") && <button type="button" disabled={busy} onClick={() => setCorrectionKind("game_walkover")}>Xử thắng game</button>}<button type="button" disabled={busy} onClick={() => setCorrectionKind("match_walkover")}>Xử thắng cả trận</button></div>{correctionKind && event && <MatchChange key={`${match.id}/${number}/${correctionKind}`} event={event} match={match} number={number} gameRevision={baseGame?.revision || 0} data={draft} kind={correctionKind} busy={busy} onBusy={setBusy} onCancel={() => open(match, number, true)} onApplied={async () => { try { await reload(true); setNotice("Đã lưu thay đổi và lịch sử."); } catch { setNotice("Đã lưu thay đổi và lịch sử."); setError("Chưa tải được kết quả mới. Tải lại trận."); } }} />}</>}</> : <><h3>{loading ? "Đang tải game…" : "Chọn trận để bắt đầu"}</h3><p>Dữ liệu chỉ tính điểm sau khi điều hành xác nhận.</p></>}</section></div>
-    {event && <ResultHistory event={event} items={history} />}
+    {event && <><ResultHistory event={event} items={history} /><RosterHistory items={history} /></>}
   </section>;
 }

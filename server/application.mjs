@@ -10,6 +10,7 @@ import { createFormats } from './formats.mjs';
 import { createResults } from './results.mjs';
 import { createHistory } from './history.mjs';
 import { createChanges } from './changes.mjs';
+import { createRosters } from './rosters.mjs';
 
 const derive = promisify(scrypt);
 const SESSION_MS = 12 * 60 * 60 * 1000;
@@ -52,6 +53,7 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
   const results = createResults(db, directory);
   const history = createHistory(db);
   const changes = createChanges(db, results, history);
+  const rosters = createRosters(db, directory, history);
   const loginFailures = new Map();
   const unknownPassword = await passwordHash(randomBytes(32).toString('hex'));
   const tokenHash = token => createHash('sha256').update(token).digest('hex');
@@ -139,6 +141,12 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
         return send(200, { user: publicUser(updated) }, createSession(updated));
       }
       if (user.must_change) fail(403, 'Đổi mật khẩu trước khi dùng ứng dụng.');
+      const rosterRoute = path.match(/^\/api\/tournaments\/([a-zA-Z0-9-]+)\/registrations\/([a-zA-Z0-9-]+)\/additions$/);
+      if (rosterRoute && method === 'POST') {
+        const body = await jsonBody(request);
+        access.requireRole(user, rosterRoute[1], 'operator');
+        return send(200, { registration: rosters.approve(rosterRoute[1], rosterRoute[2], body, user.id) });
+      }
       const historyRoute = path.match(/^\/api\/tournaments\/([a-zA-Z0-9-]+)\/history$/);
       if (historyRoute && method === 'GET') {
         access.requireRole(user, historyRoute[1]);

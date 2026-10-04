@@ -1,0 +1,6 @@
+.rp-locked { padding:18px; border-left:3px solid #bdd7c7; background:#293d31; }
+.rp-locked h3 { display:flex; align-items:center; gap:10px; font-size:18px; }
+.op-registration textarea { width:100%; min-height:108px; padding:14px; border:1px solid #657966; border-radius:5px; background:#141d17; color:#f0eee8; font:inherit; font-size:16px; resize:vertical; }
+.op-registration textarea:focus-visible { outline:2px solid #f18c72; outline-offset:3px; }
+.op-registration .op-registered-list small { display:block; margin-bottom:12px; font-size:15px; }
+.op-registration button:disabled { cursor:not-allowed; }

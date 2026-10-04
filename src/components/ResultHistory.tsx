@@ -1,10 +1,11 @@
-import type { HistoryItem, Match, Tournament } from "../lib/api";
+import type { HistoryItem, Match, ResultHistoryItem, Tournament } from "../lib/api";
 import GameFacts from "./GameFacts";
 import { matchName } from "../lib/competition-labels";
 import "./MatchChange.css";
 const titles: Record<string, string> = { game_edit: "Sửa game", game_walkover: "Xử thắng game", match_walkover: "Xử thắng trận" };
 
-export default function ResultHistory({ event, items }: { event: Tournament; items: HistoryItem[] }) {
+export default function ResultHistory({ event, items: allItems }: { event: Tournament; items: HistoryItem[] }) {
+  const items = allItems.filter((item): item is ResultHistoryItem => item.action !== "roster_addition");
   const name = (id: string | null | undefined) => event.registrations.find(item => item.team.id === id)?.team.name || "Chưa xác định";
   function snapshot(match: Match) {
     return <><p>Đội thắng trận: {name(match.winnerId)}</p>{match.decision && <p>Quyết định: {match.decision.reason}</p>}{match.games.map(game => <GameFacts key={game.number} game={game} event={event} />)}</>;
