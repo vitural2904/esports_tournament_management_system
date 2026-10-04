@@ -36,17 +36,19 @@ export function rankGroup(stage, group, teamIds, baseMatches, tieMatches) {
     if (ids.length === 1) { rows.find(row => row.teamId === ids[0]).rank = rank; return; }
     const scope = createHash('sha256').update(JSON.stringify([stage.id, group.id, rank, [...ids].sort()])).digest('hex').slice(0, 24);
     const existing = tieMatches.filter(match => match.tiebreak.scope === scope);
-    const round = Math.max(0, ...existing.map(match => match.tiebreak.round));
-    const latest = existing.filter(match => match.tiebreak.round === round);
-    activeTieIds.push(...existing.map(match => match.id));
-    if (!round || latest.every(match => match.winnerId)) {
-      const next = round ? tiers(ids, latest) : [ids];
-      if (next.length === 1) {
-        pending.push({ scope, round: round + 1, groupId: group.id, rankStart: rank, teamIds: ids });
+    const rounds = [...new Set(existing.map(match => match.tiebreak.round))].sort((a, b) => a - b);
+    if (!rounds.length) pending.push({ scope, round: 1, groupId: group.id, rankStart: rank, teamIds: ids });
+    for (const round of rounds) {
+      const matches = existing.filter(match => match.tiebreak.round === round);
+      activeTieIds.push(...matches.map(match => match.id));
+      if (!matches.every(match => match.winnerId)) return;
+      const next = tiers(ids, matches);
+      if (next.length > 1) {
+        let start = rank;
+        for (const subset of next) { assign(subset, start); start += subset.length; }
         return;
       }
-      let start = rank;
-      for (const subset of next) { assign(subset, start); start += subset.length; }
+      if (round === rounds.at(-1)) pending.push({ scope, round: round + 1, groupId: group.id, rankStart: rank, teamIds: ids });
     }
   }
   if (completeBase) {

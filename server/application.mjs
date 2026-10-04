@@ -8,6 +8,8 @@ import { createDirectory } from './directory.mjs';
 import { createAccess } from './access.mjs';
 import { createFormats } from './formats.mjs';
 import { createResults } from './results.mjs';
+import { createHistory } from './history.mjs';
+import { createChanges } from './changes.mjs';
 
 const derive = promisify(scrypt);
 const SESSION_MS = 12 * 60 * 60 * 1000;
@@ -48,6 +50,8 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
   const access = createAccess(db);
   const formats = createFormats(db, directory);
   const results = createResults(db, directory);
+  const history = createHistory(db);
+  const changes = createChanges(db, results, history);
   const loginFailures = new Map();
   const unknownPassword = await passwordHash(randomBytes(32).toString('hex'));
   const tokenHash = token => createHash('sha256').update(token).digest('hex');
@@ -135,6 +139,20 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
         return send(200, { user: publicUser(updated) }, createSession(updated));
       }
       if (user.must_change) fail(403, 'Đổi mật khẩu trước khi dùng ứng dụng.');
+      const historyRoute = path.match(/^\/api\/tournaments\/([a-zA-Z0-9-]+)\/history$/);
+      if (historyRoute && method === 'GET') {
+        access.requireRole(user, historyRoute[1]);
+        return send(200, { history: history.list(historyRoute[1]) });
+      }
+      const changeRoute = path.match(/^\/api\/tournaments\/([a-zA-Z0-9-]+)\/matches\/([^/]+)\/changes\/(preview|apply)$/);
+      if (changeRoute && method === 'POST') {
+        const [, id, encodedMatchId, action] = changeRoute;
+        const body = await jsonBody(request);
+        access.requireRole(user, id, 'operator');
+        let matchId;
+        try { matchId = decodeURIComponent(encodedMatchId); } catch { fail(400, 'Mã trận không hợp lệ.'); }
+        return send(200, changes[action](id, matchId, body, user.id));
+      }
       const operationRoute = path.match(/^\/api\/tournaments\/([a-zA-Z0-9-]+)\/(schedule|matches|standings)(?:\/([^/]+)(?:\/games\/(\d+)\/(save|submit|confirm))?)?$/);
       if (operationRoute) {
         const [, id, section, encodedMatchId, number, action] = operationRoute;

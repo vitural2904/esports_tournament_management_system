@@ -1,7 +1,7 @@
 import { rankGroup, tieDefinitions } from './standings.mjs';
 
 function fail(status, message) { throw Object.assign(new Error(message), { status }); }
-const gameDto = row => ({ number: row.number, state: row.state, data: JSON.parse(row.data_json), revision: row.revision, submittedBy: row.submitted_by, submittedAt: row.submitted_at, confirmedBy: row.confirmed_by, confirmedAt: row.confirmed_at });
+const gameDto = row => ({ number: row.number, state: row.state, data: JSON.parse(row.data_json), revision: row.revision, submittedBy: row.submitted_by, submittedAt: row.submitted_at, confirmedBy: row.confirmed_by, confirmedAt: row.confirmed_at, decision: row.decision_json ? JSON.parse(row.decision_json) : null });
 const object = value => value && typeof value === 'object' && !Array.isArray(value);
 
 export function createResults(db, directory) {
@@ -12,7 +12,7 @@ export function createResults(db, directory) {
   function view(tournamentId) {
     const event = directory.tournament(tournamentId);
     const rows = db.prepare('SELECT * FROM matches WHERE tournament_id=? ORDER BY rowid').all(tournamentId);
-    const games = db.prepare('SELECT * FROM games WHERE tournament_id=? ORDER BY number').all(tournamentId);
+    const games = db.prepare('SELECT g.*,d.decision_json FROM games g LEFT JOIN game_decisions d ON d.tournament_id=g.tournament_id AND d.match_id=g.match_id AND d.number=g.number WHERE g.tournament_id=? ORDER BY g.number').all(tournamentId);
     const byId = new Map(rows.map(row => [row.id, row])), cache = new Map(), groupCache = new Map(), stageCache = new Map();
     const definitions = rows.map(row => JSON.parse(row.definition_json));
     const stages = event.format?.stages || [];
@@ -58,15 +58,15 @@ export function createResults(db, directory) {
       const matchGames = games.filter(game => game.match_id === id).map(gameDto);
       const score = teams.map(teamId => matchGames.filter(game => game.state === 'confirmed' && game.data.winnerId === teamId).length);
       const winnerIndex = score.findIndex(value => value >= (definition.bo + 1) / 2);
-      const winnerId = winnerIndex < 0 ? null : teams[winnerIndex];
+      const winnerId = state.decision?.winnerId || (winnerIndex < 0 ? null : teams[winnerIndex]);
       let status = winnerId ? 'completed' : state.startedAt ? 'in_progress' : teams.every(Boolean) ? 'ready' : 'waiting';
       if (definition.condition) {
         const previous = read(definition.condition.matchId), challenger = resolve(definition.condition.challenger);
         if (!previous.winnerId || !challenger) status = 'waiting';
         else if (previous.winnerId !== challenger) status = 'skipped';
       }
-      if (status === 'ready' && !stages.slice(0, stages.findIndex(stage => stage.id === definition.stageId)).every(stageComplete)) status = 'waiting';
-      const result = { ...definition, revision: row.revision, scheduledAt: row.scheduled_at, startedAt: state.startedAt || null, teams, score, winnerId, status, games: matchGames };
+      if (status !== 'skipped' && !stages.slice(0, stages.findIndex(stage => stage.id === definition.stageId)).every(stageComplete)) status = 'waiting';
+      const result = { ...definition, revision: row.revision, scheduledAt: row.scheduled_at, startedAt: state.startedAt || null, teams, score, winnerId, status, games: matchGames, decision: state.decision || null };
       cache.set(id, result); return result;
     }
     function standings() {
@@ -76,7 +76,13 @@ export function createResults(db, directory) {
       const championId = !completed ? null : last.type === 'round_robin' ? (last.groups.length === 1 ? groupStanding(last, last.groups[0]).rows.find(row => row.rank === 1)?.teamId : null) : finalMatch(last.id)?.winnerId;
       return { groups, completed, championId: championId || null };
     }
-    return { event, read, standings, list: () => rows.map(row => read(row.id)) };
+    function readMatch(id) {
+      const match = read(id);
+      if (!match.tiebreak) return match;
+      const stage = stages.find(stage => stage.id === match.stageId), group = stage.groups.find(group => group.id === match.groupId);
+      return groupStanding(stage, group).activeTieIds.includes(id) ? match : { ...match, status: 'skipped', winnerId: null };
+    }
+    return { event, read: readMatch, standings, list: () => rows.map(row => readMatch(row.id)) };
   }
   function validateData(data, match, event) {
     const allowed = ['winnerId', 'durationSeconds', 'blueTeamId', 'redTeamId', 'lineups', 'pickBan', 'patch'];
@@ -139,10 +145,7 @@ export function createResults(db, directory) {
         db.prepare(`UPDATE games SET state=?,revision=revision+1,${field}_by=?,${field}_at=? WHERE tournament_id=? AND match_id=? AND number=?`).run(field, userId, now, tournamentId, matchId, number);
       }
       db.prepare('UPDATE matches SET revision=revision+1 WHERE tournament_id=? AND id=?').run(tournamentId, matchId);
-      if (action === 'confirm') {
-        const insert = db.prepare('INSERT OR IGNORE INTO matches (tournament_id,id,definition_json) VALUES (?,?,?)');
-        for (const group of view(tournamentId).standings().groups) for (const definition of tieDefinitions(group.stageId, group.pending)) insert.run(tournamentId, definition.id, JSON.stringify(definition));
-      }
+      if (action === 'confirm') materializeTies(tournamentId);
       db.exec('COMMIT');
     } catch (error) { if (db.isTransaction) db.exec('ROLLBACK'); throw error; }
     return view(tournamentId).read(matchId).games.find(game => game.number === number);
@@ -166,5 +169,9 @@ export function createResults(db, directory) {
     } catch (error) { if (db.isTransaction) db.exec('ROLLBACK'); throw error; }
     return view(tournamentId).list();
   }
-  return { view, game, schedule };
+  function materializeTies(tournamentId) {
+    const insert = db.prepare('INSERT OR IGNORE INTO matches (tournament_id,id,definition_json) VALUES (?,?,?)');
+    for (const group of view(tournamentId).standings().groups) for (const definition of tieDefinitions(group.stageId, group.pending)) insert.run(tournamentId, definition.id, JSON.stringify(definition));
+  }
+  return { view, game, schedule, validateData, materializeTies };
 }
