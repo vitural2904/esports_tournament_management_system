@@ -72,6 +72,17 @@ npm test
 npm run build
 ```
 
+CI chạy trên mọi push và pull request. Gồm test API/domain, kiểm tra TypeScript, build và ba kiểm tra UI hồi quy bằng Chromium. Khi UI lỗi, GitHub lưu report, screenshot và trace trong artifact `ui-regression-report` trong 7 ngày.
+
+Chạy UI local:
+
+```bash
+npx playwright install chromium
+npm run test:ui
+```
+
+Mỗi test UI khởi động API thật và bản giao diện đã build trên cổng ngẫu nhiên, với database mới trong thư mục tạm. Không dùng app đang chạy, `DATABASE_PATH` hay tài khoản thật. Ba luồng kiểm tra: upload logo rồi lưu tên đang nhập; tín hiệu “Tiếp theo” tính trên toàn giải; mở A → chọn B → hồ sơ → mở lại A, giữ bản game chưa lưu. Report ở `output/playwright/report/index.html`. Xem bằng `npx playwright show-report output/playwright/report`.
+
 Test dùng database tạm, tài khoản thử riêng và API loopback. Không đụng database thật. Mật khẩu băm scrypt; phiên được lưu dạng hash, cookie HttpOnly/SameSite Strict. Đổi mật khẩu thu hồi toàn bộ phiên của tài khoản. Đăng xuất thu hồi phiên hiện tại.
 
 Đã kiểm tra mẫu 8 đội qua hai thành viên: 24 trận bảng, 15 trận loại kép có reset, 58 game xác nhận, nhà vô địch và dữ liệu sau hai lần khởi động lại. Có kiểm tra quyền trực tiếp, bản cũ, rollback, hòa nhiều đội, xử thắng, sửa kết quả, đăng ký, nâng database cũ và backup/restore.
