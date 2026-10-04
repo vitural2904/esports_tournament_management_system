@@ -19,6 +19,9 @@ migrations.push(`ALTER TABLE users ADD COLUMN disabled INTEGER NOT NULL DEFAULT 
  CREATE TABLE account_history (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), actor_id TEXT NOT NULL REFERENCES users(id), action TEXT NOT NULL, before_json TEXT NOT NULL, after_json TEXT NOT NULL, created_at TEXT NOT NULL);
  CREATE INDEX account_history_by_user ON account_history(user_id);`);
 
+migrations.push(`ALTER TABLE players ADD COLUMN position TEXT NOT NULL DEFAULT '';
+ ALTER TABLE teams ADD COLUMN description TEXT NOT NULL DEFAULT '';`);
+
 export function migrate(db) {
   db.exec('BEGIN IMMEDIATE');
   try {

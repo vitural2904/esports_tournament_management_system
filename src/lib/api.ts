@@ -1,8 +1,11 @@
 export type Account = { id: string; username: string; displayName: string; admin: boolean; mustChangePassword: boolean; disabled: boolean; revision: number; grants?: { tournamentId: string; tournamentName: string; roles: TournamentRole[]; revision: number }[] };
 export type AccountHistoryItem = { id: string; action: string; actor: { id: string; displayName: string }; before: Record<string, unknown> | null; after: Record<string, unknown>; createdAt: string };
-export type Team = { id: string; name: string; tag: string; revision: number; archived: boolean };
-export type Player = { id: string; name: string; handle: string; revision: number; archived: boolean };
-export type Registration = { team: Pick<Team, "id" | "name" | "tag">; players: Pick<Player, "id" | "name" | "handle">[]; revision: number; lockedAt: string | null };
+export type MediaAsset = { id: string; width: number; height: number; light: boolean; x: number; y: number };
+export type IdentityMedia = { logo?: MediaAsset; cover?: MediaAsset; portrait?: MediaAsset };
+export type PlayerPosition = "" | "Top" | "Jungle" | "Mid" | "ADC" | "Support";
+export type Team = { id: string; name: string; tag: string; description?: string; media?: IdentityMedia; revision: number; archived: boolean };
+export type Player = { id: string; name: string; handle: string; position?: PlayerPosition; media?: IdentityMedia; revision: number; archived: boolean };
+export type Registration = { team: Pick<Team, "id" | "name" | "tag" | "description" | "media">; players: Pick<Player, "id" | "name" | "handle" | "position" | "media">[]; revision: number; lockedAt: string | null };
 export type TournamentRole = "operator" | "entry";
 export type Grant = { userId: string; roles: TournamentRole[]; revision: number };
 export type Tournament = { id: string; name: string; revision: number; lockedAt: string | null; format: unknown; registrations: Registration[]; roles: TournamentRole[] };
@@ -22,3 +25,5 @@ export async function api<T>(path: string, body?: object): Promise<T> {
   if (!response.ok) throw new Error(value.error || "Không thể hoàn tất thao tác.");
   return value;
 }
+
+export type TeamProfileData = { team: Registration["team"]; directoryTeam: Team | null; registration: Registration | null; tournament: { id: string; name: string } | null; participations: { id: string; name: string }[]; opponents: Registration["team"][]; matches: Match[]; canManage: boolean; canAdd: boolean };
