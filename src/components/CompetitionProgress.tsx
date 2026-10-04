@@ -4,11 +4,12 @@ import type { Match, Standings, Tournament } from "../lib/api";
 import type { Source } from "../../shared/format.mjs";
 import { stageName } from "../lib/competition-labels";
 import "./CompetitionProgress.css";
+import type { MatchSignal } from "../../shared/match-signals.mjs";
+import { MatchSchedule, MatchStatus } from "./MatchSignals";
 
 const branches = { upper: "Nhánh thắng", lower: "Nhánh thua", final: "Chung kết tổng", tiebreak: "Trận phụ phân hạng" };
-const statusNames = { waiting: "Chờ giai đoạn hoặc đội", ready: "Sẵn sàng", in_progress: "Đang đấu", completed: "Đã xong", skipped: "Không cần đấu" };
 
-export default function CompetitionProgress({ event, matches, standings, busy, onSelect }: { event: Tournament; matches: Match[]; standings: Standings; busy: boolean; onSelect: (match: Match) => void }) {
+export default function CompetitionProgress({ event, matches, signals, standings, busy, onSelect }: { event: Tournament; matches: Match[]; signals: Record<string, MatchSignal>; standings: Standings; busy: boolean; onSelect: (match: Match) => void }) {
   const reduced = useReducedMotion();
   const teamName = (id: string | null) => event.registrations.find(item => item.team.id === id)?.team.name || "Chưa xác định";
   function sourceName(source: Source) {
@@ -24,7 +25,7 @@ export default function CompetitionProgress({ event, matches, standings, busy, o
     {stageIds.length > 0 && <details className="cp-brackets"><summary>Nhánh đấu trực tiếp</summary><p>Chọn trận để xem hoặc nhập game. Nguồn thắng/thua nằm dưới tên đội. Kéo ngang để xem các vòng tiếp theo.</p>{stageIds.map(stageId => <section key={stageId} className="cp-stage"><h3>{stageName(event, stageId)}</h3>{(Object.keys(branches) as (keyof typeof branches)[]).filter(branch => matches.some(match => match.stageId === stageId && match.branch === branch)).map(branch => {
       const branchMatches = matches.filter(match => match.stageId === stageId && match.branch === branch);
       const rounds = [...new Set(branchMatches.map(match => match.round))].sort((a, b) => a - b);
-      return <section key={branch} className={`cp-branch cp-${branch}`}><h4>{branches[branch]}</h4><div className="cp-rounds" tabIndex={0} role="region" aria-label={`${stageId} · ${branches[branch]}`}>{rounds.map(round => <div key={round} className="cp-round"><h5>Vòng {round}</h5>{branchMatches.filter(match => match.round === round).map(match => <motion.button key={match.id} type="button" className={`cp-match cp-${match.status}`} disabled={busy} onClick={() => onSelect(match)} whileTap={reduced ? undefined : { scale: .98 }}><span>{match.key.startsWith("TB-") ? "Phân hạng BO1" : `${match.key} · BO${match.bo}`}</span>{match.sources.map((source, index) => <div key={index} className={match.winnerId && match.winnerId === match.teams[index] ? "cp-winner" : ""}><strong>{match.teams[index] ? teamName(match.teams[index]) : sourceName(source)}</strong><b>{match.decision ? match.winnerId === match.teams[index] ? "W" : "L" : match.score[index]}</b><small>{sourceName(source)}</small></div>)}<small>{match.decision ? "Xử thắng cả trận" : statusNames[match.status]}</small></motion.button>)}</div>)}</div></section>;
+      return <section key={branch} className={`cp-branch cp-${branch}`}><h4>{branches[branch]}</h4><div className="cp-rounds" tabIndex={0} role="region" aria-label={`${stageId} · ${branches[branch]}`}>{rounds.map(round => <div key={round} className="cp-round"><h5>Vòng {round}</h5>{branchMatches.filter(match => match.round === round).map(match => <motion.button key={match.id} type="button" className={`cp-match cp-${match.status} signal-row`} data-signal={signals[match.id].borderTone} disabled={busy} onClick={() => onSelect(match)} whileTap={reduced ? undefined : { scale: .98 }}><span>{match.key.startsWith("TB-") ? "Phân hạng BO1" : `${match.key} · BO${match.bo}`}</span>{match.sources.map((source, index) => <div key={index} className={match.winnerId && match.winnerId === match.teams[index] ? "cp-winner" : ""}><strong>{match.teams[index] ? teamName(match.teams[index]) : sourceName(source)}</strong><b>{match.decision ? match.winnerId === match.teams[index] ? "W" : "L" : match.score[index]}</b><small>{sourceName(source)}</small></div>)}<MatchStatus signal={signals[match.id]} decision={!!match.decision} /><MatchSchedule signal={signals[match.id]} /></motion.button>)}</div>)}</div></section>;
     })}</section>)}</details>}
   </section>;
 }
