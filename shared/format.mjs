@@ -120,6 +120,39 @@ export function compileFormat(input, teamIds, { requireAllTeams = false } = {}) 
     stages.push(stage);
   }
   if (requireAllTeams) {
+    const expansions = value => {
+      if (value.kind === 'team') return [];
+      if (value.kind === 'winner' || value.kind === 'loser') return matches.find(match => match.id === value.matchId).sources;
+      const prior = stages.find(stage => stage.id === value.stageId);
+      return value.kind === 'seed' ? prior.groups.find(group => group.id === value.groupId).inputs : prior.inputs;
+    };
+    const domains = new Map(), pairs = new Map();
+    function domain(value) {
+      const key = JSON.stringify(value);
+      if (!domains.has(key)) domains.set(key, new Set(value.kind === 'team' ? [value.teamId] : expansions(value).flatMap(input => [...domain(input)])));
+      return domains.get(key);
+    }
+    function disjoint(a, b) {
+      const aKey = JSON.stringify(a), bKey = JSON.stringify(b), key = [aKey, bKey].sort().join('|');
+      if (pairs.has(key)) return pairs.get(key);
+      let safe = aKey !== bKey && (
+        (a.kind === 'seed' && b.kind === 'seed' && a.stageId === b.stageId && a.groupId === b.groupId && a.rank !== b.rank) ||
+        (a.kind === 'placement' && b.kind === 'placement' && a.stageId === b.stageId && a.rank !== b.rank) ||
+        (['winner', 'loser'].includes(a.kind) && ['winner', 'loser'].includes(b.kind) && a.matchId === b.matchId && a.kind !== b.kind) ||
+        [...domain(a)].every(team => !domain(b).has(team))
+      );
+      if (!safe && aKey !== bKey) {
+        const left = expansions(a), right = expansions(b);
+        safe = (left.length > 0 && left.every(input => disjoint(input, b))) || (right.length > 0 && right.every(input => disjoint(a, input)));
+      }
+      pairs.set(key, safe); return safe;
+    }
+    for (const stage of stages) {
+      const inputs = stage.type === 'round_robin' ? stage.groups.flatMap(group => group.inputs) : stage.inputs;
+      for (let i = 0; i < inputs.length; i++) for (let j = i + 1; j < inputs.length; j++) {
+        if (!disjoint(inputs[i], inputs[j])) invalid(`${stage.name}: nguồn đội có thể trùng. Chọn seed khác hạng, nguồn thắng/thua đối nhau hoặc nguồn từ các nhóm đội riêng.`);
+      }
+    }
     const first = stages[0];
     const initial = first.type === 'round_robin' ? first.groups.flatMap(group => group.inputs) : first.inputs;
     if (initial.length !== registered.size || initial.some(value => value.kind !== 'team') || new Set(initial.map(value => value.teamId)).size !== registered.size) invalid('Giai đoạn đầu cần chứa đúng tất cả đội đã đăng ký.');

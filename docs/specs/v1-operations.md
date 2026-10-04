@@ -50,6 +50,7 @@ Giữ visual đã duyệt. Chọn hướng C: dựng nhánh trước, chỉnh c�
 - Model giữ tổ chức, tài khoản, grant, đội, tuyển thủ, giải, đăng ký, cấu hình giai đoạn, bảng, trận, game, phiên bản và lịch sử. Cấu hình giai đoạn là dữ liệu có kiểm tra schema; không dùng mã tùy ý từ người dùng.
 - Luồng game: draft → submitted → confirmed. Draft không ảnh hưởng điểm. Entry gửi; operator xác nhận. Thao tác lặp hoặc game thừa bị chặn; winner thuộc hai đội của trận.
 - Nhánh là đồ thị không chu trình với nguồn đội cố định/lấy seed/lấy thắng/lấy thua. Chốt cấu trúc trước giai đoạn đầu. Thuật toán điểm và nhánh tách khỏi vận chuyển HTTP; API là seam kiểm tra ưu tiên.
+- Khi chốt, các nguồn trong cùng giai đoạn phải được chứng minh không lấy cùng một đội: khác nhóm đội, khác hạng cùng bảng/nhánh, hoặc nguồn thắng/thua đối nhau. Kết hợp nguồn không chứng minh được tính riêng biệt bị chặn trước khóa; sửa cấu hình trong bản nháp. Đây là giới hạn kiểm tra an toàn của v1, không phải thay đổi thể thức giữa giải.
 - BO1/3/5; preset mẫu 8 đội, 2 bảng, 2 lượt: 24 trận bảng, 14–15 trận loại kép. Cả 8 đội vào nhánh. Chung kết nhánh thắng/thua/tổng/reset BO5, còn lại loại kép BO3.
 - Hòa xét điểm rồi đối đầu trong nhóm bằng điểm. Còn hòa thì BO1 cho hai đội hoặc vòng tròn BO1 cho nhóm lớn; tạo lượt phụ tiếp cho nhóm chưa phân định. Seed không được âm thầm tự chọn.
 - Lịch độc lập với khóa thể thức. Snapshot đăng ký theo giải. Đội hình từng game phải lấy từ danh sách được phép.

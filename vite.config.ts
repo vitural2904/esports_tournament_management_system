@@ -6,5 +6,5 @@ import path from "node:path";
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: { alias: { "@": path.resolve(process.cwd(), "src") } },
-  server: { proxy: { "/api": "http://127.0.0.1:3001" } },
+  server: { host: "127.0.0.1", port: 5173, strictPort: true, proxy: { "/api": "http://127.0.0.1:3001" } },
 });

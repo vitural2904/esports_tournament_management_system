@@ -11,6 +11,7 @@ import { createResults } from './results.mjs';
 import { createHistory } from './history.mjs';
 import { createChanges } from './changes.mjs';
 import { createRosters } from './rosters.mjs';
+import { migrate } from './migrations.mjs';
 
 const derive = promisify(scrypt);
 const SESSION_MS = 12 * 60 * 60 * 1000;
@@ -41,11 +42,10 @@ async function jsonBody(request) {
 export async function createApplication({ databasePath, allowedOrigins = ['http://127.0.0.1:5173'], secureCookies = false }) {
   await mkdir(dirname(databasePath), { recursive: true });
   const db = new DatabaseSync(databasePath);
-  db.exec(`PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;
-    CREATE TABLE IF NOT EXISTS schema_version (version INTEGER PRIMARY KEY);
-    INSERT OR IGNORE INTO schema_version VALUES (1);
-    CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, username TEXT UNIQUE COLLATE NOCASE NOT NULL, display_name TEXT NOT NULL, password_hash TEXT NOT NULL, admin INTEGER NOT NULL DEFAULT 0, must_change INTEGER NOT NULL DEFAULT 1);
-    CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, expires_at INTEGER NOT NULL);`);
+  try {
+    db.exec('PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;');
+    migrate(db);
+  } catch (error) { db.close(); throw error; }
   const findUser = id => db.prepare('SELECT * FROM users WHERE id=?').get(id);
   const directory = createDirectory(db);
   const access = createAccess(db);
@@ -150,6 +150,7 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
       const historyRoute = path.match(/^\/api\/tournaments\/([a-zA-Z0-9-]+)\/history$/);
       if (historyRoute && method === 'GET') {
         access.requireRole(user, historyRoute[1]);
+        directory.tournament(historyRoute[1]);
         return send(200, { history: history.list(historyRoute[1]) });
       }
       const changeRoute = path.match(/^\/api\/tournaments\/([a-zA-Z0-9-]+)\/matches\/([^/]+)\/changes\/(preview|apply)$/);

@@ -1,10 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
 export function createHistory(db) {
-  db.exec(`BEGIN IMMEDIATE;
-    CREATE TABLE IF NOT EXISTS history (id TEXT PRIMARY KEY,tournament_id TEXT NOT NULL REFERENCES tournaments(id),actor_id TEXT NOT NULL REFERENCES users(id),action TEXT NOT NULL,target_id TEXT NOT NULL,reason TEXT NOT NULL,before_json TEXT NOT NULL,after_json TEXT NOT NULL,created_at TEXT NOT NULL);
-    INSERT OR IGNORE INTO schema_version VALUES (6);
-    COMMIT;`);
   function record(tournamentId, actorId, action, targetId, reason, before, after) {
     db.prepare('INSERT INTO history VALUES (?,?,?,?,?,?,?,?,?)').run(randomUUID(), tournamentId, actorId, action, targetId, reason, JSON.stringify(before), JSON.stringify(after), new Date().toISOString());
   }

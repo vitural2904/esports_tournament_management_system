@@ -5,10 +5,6 @@ function fail(status, message) { throw Object.assign(new Error(message), { statu
 const outcome = match => ({ teams: match.teams, winnerId: match.winnerId, status: match.status });
 
 export function createChanges(db, results, history) {
-  db.exec(`BEGIN IMMEDIATE;
-    CREATE TABLE IF NOT EXISTS game_decisions (tournament_id TEXT NOT NULL,match_id TEXT NOT NULL,number INTEGER NOT NULL,decision_json TEXT NOT NULL,PRIMARY KEY(tournament_id,match_id,number),FOREIGN KEY(tournament_id,match_id,number) REFERENCES games(tournament_id,match_id,number));
-    INSERT OR IGNORE INTO schema_version VALUES (7);
-    COMMIT;`);
   const signingKey = randomBytes(32);
   function command(body, match, event) {
     if (typeof body.reason !== 'string' || !body.reason.trim() || body.reason.trim().length > 1000) fail(400, 'Cần lý do sửa từ 1–1000 ký tự.');

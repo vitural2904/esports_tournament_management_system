@@ -14,6 +14,18 @@ async function eventWithTeams(f, cookie, count = 8) {
   return { event: (await f.request(`/api/tournaments/${event.id}`, { cookie })).body.tournament, ids };
 }
 const teamSource = teamId => ({ kind: 'team', teamId });
+test('locking rejects sources that can resolve to the same team, while complementary outcomes remain valid', async t => {
+  const f = await fixture(t), cookie = await owner(f), { event, ids } = await eventWithTeams(f, cookie, 4);
+  const format = createPreset('single_elimination', ids);
+  format.stages.push({ id: 'next', name: 'Next', type: 'single_elimination', bo: 1, finalBo: 1, inputs: [{ kind: 'winner', matchId: 'stage1:U1' }, teamSource(ids[0])] });
+  const saved = (await f.request(`/api/tournaments/${event.id}/format`, { method: 'POST', cookie, body: { revision: event.revision, format } })).body.tournament;
+  assert.equal((await f.request(`/api/tournaments/${event.id}/lock`, { method: 'POST', cookie, body: { revision: saved.revision } })).status, 400);
+  assert.equal((await f.request(`/api/tournaments/${event.id}`, { cookie })).body.tournament.lockedAt, null);
+  format.stages[1].inputs[1] = { kind: 'loser', matchId: 'stage1:U1' };
+  const repaired = await f.request(`/api/tournaments/${event.id}/format`, { method: 'POST', cookie, body: { revision: saved.revision, format } });
+  assert.equal(repaired.status, 200);
+  assert.equal((await f.request(`/api/tournaments/${event.id}/lock`, { method: 'POST', cookie, body: { revision: repaired.body.tournament.revision } })).status, 200);
+});
 const seed = (groupId, rank) => ({ kind: 'seed', stageId: 'groups', groupId, rank });
 function hybrid(ids) {
   return { version: 1, stages: [

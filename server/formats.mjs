@@ -2,10 +2,6 @@ import { compileFormat } from '../shared/format.mjs';
 function fail(status, message) { throw Object.assign(new Error(message), { status }); }
 
 export function createFormats(db, directory) {
-  db.exec(`BEGIN IMMEDIATE;
-    CREATE TABLE IF NOT EXISTS matches (tournament_id TEXT NOT NULL REFERENCES tournaments(id),id TEXT NOT NULL,definition_json TEXT NOT NULL,state_json TEXT NOT NULL DEFAULT '{}',revision INTEGER NOT NULL DEFAULT 1,scheduled_at TEXT,PRIMARY KEY(tournament_id,id));
-    INSERT OR IGNORE INTO schema_version VALUES (4);
-    COMMIT;`);
   function read(id) {
     const event = directory.tournament(id);
     return { ...event, graph: event.format ? compileFormat(event.format, event.registrations.map(item => item.team.id)).matches : [] };

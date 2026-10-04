@@ -5,10 +5,6 @@ const gameDto = row => ({ number: row.number, state: row.state, data: JSON.parse
 const object = value => value && typeof value === 'object' && !Array.isArray(value);
 
 export function createResults(db, directory) {
-  db.exec(`BEGIN IMMEDIATE;
-    CREATE TABLE IF NOT EXISTS games (tournament_id TEXT NOT NULL,match_id TEXT NOT NULL,number INTEGER NOT NULL,state TEXT NOT NULL DEFAULT 'draft',data_json TEXT NOT NULL,revision INTEGER NOT NULL DEFAULT 1,submitted_by TEXT REFERENCES users(id),submitted_at TEXT,confirmed_by TEXT REFERENCES users(id),confirmed_at TEXT,PRIMARY KEY(tournament_id,match_id,number),FOREIGN KEY(tournament_id,match_id) REFERENCES matches(tournament_id,id));
-    INSERT OR IGNORE INTO schema_version VALUES (5);
-    COMMIT;`);
   function view(tournamentId) {
     const event = directory.tournament(tournamentId);
     const rows = db.prepare('SELECT * FROM matches WHERE tournament_id=? ORDER BY rowid').all(tournamentId);

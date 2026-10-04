@@ -10,11 +10,6 @@ const teamDto = row => ({ id: row.id, name: row.name, tag: row.tag, revision: ro
 const playerDto = row => ({ id: row.id, name: row.name, handle: row.handle, revision: row.revision, archived: Boolean(row.archived) });
 
 export function createDirectory(db) {
-  db.exec(`CREATE TABLE IF NOT EXISTS teams (id TEXT PRIMARY KEY,name TEXT NOT NULL,name_key TEXT NOT NULL UNIQUE,tag TEXT NOT NULL,revision INTEGER NOT NULL DEFAULT 1,archived INTEGER NOT NULL DEFAULT 0);
-    CREATE TABLE IF NOT EXISTS players (id TEXT PRIMARY KEY,name TEXT NOT NULL,handle TEXT NOT NULL,handle_key TEXT NOT NULL UNIQUE,revision INTEGER NOT NULL DEFAULT 1,archived INTEGER NOT NULL DEFAULT 0);
-    CREATE TABLE IF NOT EXISTS tournaments (id TEXT PRIMARY KEY,name TEXT NOT NULL,revision INTEGER NOT NULL DEFAULT 1,format_json TEXT,locked_at TEXT);
-    CREATE TABLE IF NOT EXISTS registrations (tournament_id TEXT NOT NULL REFERENCES tournaments(id),team_id TEXT NOT NULL REFERENCES teams(id),snapshot_json TEXT NOT NULL,revision INTEGER NOT NULL DEFAULT 1,locked_at TEXT,PRIMARY KEY(tournament_id,team_id));
-    INSERT OR IGNORE INTO schema_version VALUES (2);`);
   const tables = { teams: { dto: teamDto, field: 'tag', keyField: 'name_key' }, players: { dto: playerDto, field: 'handle', keyField: 'handle_key' } };
   function list() {
     return { teams: db.prepare('SELECT * FROM teams ORDER BY name').all().map(teamDto), players: db.prepare('SELECT * FROM players ORDER BY handle').all().map(playerDto) };

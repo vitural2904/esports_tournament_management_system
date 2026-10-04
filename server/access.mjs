@@ -1,10 +1,6 @@
 function fail(status, message) { throw Object.assign(new Error(message), { status }); }
 
 export function createAccess(db) {
-  db.exec(`BEGIN IMMEDIATE;
-    CREATE TABLE IF NOT EXISTS grants (tournament_id TEXT NOT NULL REFERENCES tournaments(id),user_id TEXT NOT NULL REFERENCES users(id),roles_json TEXT NOT NULL,revision INTEGER NOT NULL DEFAULT 1,PRIMARY KEY(tournament_id,user_id));
-    INSERT OR IGNORE INTO schema_version VALUES (3);
-    COMMIT;`);
   const roles = (user, tournamentId) => user.admin ? ['operator', 'entry'] : JSON.parse(db.prepare('SELECT roles_json FROM grants WHERE tournament_id=? AND user_id=?').get(tournamentId, user.id)?.roles_json || '[]');
   function requireRole(user, tournamentId, role) {
     const granted = roles(user, tournamentId);
