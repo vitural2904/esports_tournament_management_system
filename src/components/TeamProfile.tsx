@@ -15,7 +15,7 @@ export default function TeamProfile({ teamId, tournamentId, tournaments, players
   const [source, setSource] = useState("new");
   const [editing, setEditing] = useState(false);
   const profilePath = selected ? `/tournaments/${selected}/teams/${teamId}/profile` : `/teams/${teamId}/profile`;
-  async function refresh() { const result = await api<{ profile: TeamProfileData }>(profilePath); setProfile(result.profile); }
+  async function refresh() { const result = await api<{ profile: TeamProfileData }>(profilePath); setProfile(result.profile); setError(""); }
   useEffect(() => { let current = true; setProfile(null); setError(""); setAdding(false); setEditing(false); void api<{ profile: TeamProfileData }>(profilePath).then(result => { if (current) setProfile(result.profile); }).catch(problem => { if (current) setError(problem.message); }); return () => { current = false; }; }, [profilePath]);
   async function save(event: FormEvent<HTMLFormElement>, kind: "member" | "team") {
     event.preventDefault(); if (!profile) return;
@@ -34,7 +34,7 @@ export default function TeamProfile({ teamId, tournamentId, tournaments, players
   const canSelectDirectory = Boolean(profile?.canManage);
   return <section className="tp-profile" aria-label="Hồ sơ đội">
     <button type="button" className="op-back" disabled={busy} onClick={onBack}><ArrowLeft size={17} /> Quay lại</button>
-    {error && <p role="alert" className="op-error">{error}</p>}{notice && <p role="status" className="op-notice">{notice}</p>}
+    {error && <><p role="alert" className="op-error">{error}</p><button type="button" disabled={busy} onClick={() => void refresh().catch(problem => setError(problem.message))}>Tải lại hồ sơ</button></>}{notice && <p role="status" className="op-notice">{notice}</p>}
     {!profile ? <>{!error && <p role="status">Đang tải hồ sơ…</p>}</> : <>
       <header className="tp-heading"><div className="tp-logo" aria-hidden="true">{profile.team.tag}</div><div><h1>{profile.team.name}</h1><p>{profile.team.tag}</p></div>{profile.canManage && <button type="button" disabled={busy} onClick={() => setEditing(!editing)}>Sửa hồ sơ</button>}</header>
       {editing && profile.directoryTeam && <form className="op-panel" onSubmit={event => void save(event, "team")}><h2>Sửa thông tin danh bạ</h2><label>Tên đội<input name="name" required maxLength={80} defaultValue={profile.directoryTeam.name} /></label><label>Tên viết tắt<input name="tag" required maxLength={12} defaultValue={profile.directoryTeam.tag} /></label><label>Giới thiệu<textarea name="description" maxLength={1000} rows={3} defaultValue={profile.directoryTeam.description || ""} /></label><button type="submit" className="op-primary" disabled={busy}>Lưu hồ sơ</button><button type="button" disabled={busy} onClick={() => setEditing(false)}>Hủy</button></form>}
@@ -46,7 +46,6 @@ export default function TeamProfile({ teamId, tournamentId, tournaments, players
       </section>
       <div className="tp-details"><section><h2>Giới thiệu</h2><p>{profile.team.description || "Chưa có giới thiệu."}</p></section><section><h2>Giải tham dự</h2>{profile.participations.length ? <ul>{profile.participations.map(event => <li key={event.id}><button type="button" disabled={busy} onClick={() => setSelected(event.id)}>{event.name}</button></li>)}</ul> : <p>Chưa có giải tham dự.</p>}</section></div>
       <section><h2>Lịch và kết quả</h2>{profile.matches.length ? <ul className="tp-matches">{profile.matches.map(match => <li key={match.id}><div><strong>{match.teams.map(id => profile.opponents.find(team => team.id === id)?.name || "Chờ đội").join(" — ")}</strong><p>{match.scheduledAt ? new Date(match.scheduledAt).toLocaleString("vi-VN") : "Chưa có lịch"} · {match.score.join("–")} · {({ waiting: "Chờ đủ điều kiện", ready: "Sẵn sàng", in_progress: "Đang vận hành", completed: "Hoàn tất", skipped: "Không diễn ra" })[match.status]}</p></div>{onOpenMatch && selected && <button type="button" onClick={() => onOpenMatch(selected, match.id)}>Xem trận</button>}</li>)}</ul> : <p>{selected ? "Chưa có trận đấu của đội." : "Chọn giải để xem trận đấu."}</p>}</section>
-      {error && <button type="button" disabled={busy} onClick={() => void refresh().catch(problem => setError(problem.message))}>Tải lại hồ sơ</button>}
     </>}
   </section>;
 }
