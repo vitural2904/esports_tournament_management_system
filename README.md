@@ -70,6 +70,8 @@ Bản này chạy trên máy tổ chức. Chưa có hosting, HTTPS hay truy cậ
 
 ## UI và animation
 
+- Nền gradient dùng ảnh WebP tĩnh 1600×1000 (~49 KB). Không có animation nền, pointer tracking hay blur lúc chạy. Tạo lại ảnh bằng `scripts/render-dashboard-background.py` (CairoSVG/Pillow), không cần Python khi chạy ứng dụng.
+- Be Vietnam Pro dùng cho chữ giao diện để đủ bộ dấu tiếng Việt, không trộn nét chữ trong cùng từ. Lens Grotesk giữ cho logo và số.
 - React Bits Micro: `BellToggle`, `StatusMark`, `SwipeToast`.
 - Motion: animation và tương tác trong React.
 - AutoAnimate: chuyển động khi danh sách thay đổi.

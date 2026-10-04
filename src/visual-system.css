@@ -1,7 +1,8 @@
 :root {
   --ink-950: #171b19; --ink-850: #222823; --paper-100: #eae7df; --paper-200: #dcd9cf;
   --coral-500: #f18c72; --mint-300: #bdd7c7; --ochre-300: #e7c48c;
-  --font-ui: "Lens Grotesk", "Be Vietnam Pro", sans-serif;
+  --font-ui: "Be Vietnam Pro", sans-serif;
+  --font-display: "Lens Grotesk", "Be Vietnam Pro", sans-serif;
   --surface-base: var(--ink-950); --surface-raised: var(--ink-850); --surface-paper: var(--paper-100);
   --text-primary: #f0eee8; --text-secondary: #b7bfb5; --text-on-paper: #242c25;
   --accent-primary: var(--coral-500); --accent-success: var(--mint-300);
@@ -140,12 +141,10 @@ button, input, select, textarea { font-family: var(--font-ui); }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; } }
 /* Folded gradient surfaces. The readable area is shaded independently. */
 .vd-shell, .pb-shell { position: relative; isolation: isolate; font-size: var(--font-size-body); }
-.ambient-waves { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; opacity: 1; }
-.ambient-waves::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg,#171b19e6 0%,#171b19b8 35%,#171b1920 72%,#171b191c),linear-gradient(0deg,#171b19a6,transparent 70%); }
-.ambient-waves-parallax { position: absolute; inset: -40px; }
-.ambient-waves-field { position: absolute; inset: 0; filter: blur(.7px); }
-.ambient-ribbon { position: absolute; width: max(1050px,100vw); height: auto; right: -8%; top: -10%; transform: rotate(8deg); opacity: .8; }
-.ambient-ribbon-secondary { width: max(950px,85vw); right: 15%; top: 54%; transform: rotate(155deg); opacity: .22; }
+.ambient-waves { position: fixed; inset: 0; z-index: -1; pointer-events: none; background: #171b19 url("/art/dashboard-gradient.webp") center top / cover no-repeat; }
+/* Lens stays on Latin-only branding and numbers. Vietnamese labels use one complete family. */
+.brand, .vd-score, .vd-overview-strip strong > span, .vd-match-row time { font-family: var(--font-display); }
+.vd-overview-strip em { font-family: var(--font-ui); }
 .vd-main, .pb-main { position: relative; min-width: 0; }
 .vd-shell .sidebar, .pb-shell .sidebar { position: relative; }
 .vd-main .topbar { gap: 16px; }
@@ -175,9 +174,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   .vd-shell .nav-item { font-size: 0; }
 }
 @media (max-width: 700px) {
-  .ambient-ribbon { width: 1000px; right: -580px; top: -20px; opacity: .44; }
-  .ambient-ribbon-secondary { top: 62%; right: -380px; opacity: .17; }
-  .ambient-waves::after { background: linear-gradient(90deg,#171b19c9,#171b194d),linear-gradient(0deg,#171b19a6,transparent 70%); }
+  .ambient-waves { background-position: 62% top; }
   .vd-heading { align-items: flex-start; flex-direction: column; gap: 24px; }
   .vd-heading-meta { display: flex; flex-wrap: wrap; font-size: 13px; gap: 12px; }
   .vd-heading-meta > span+span { padding-left: 12px; border-left: 1px solid #65745d; }
@@ -206,7 +203,4 @@ button, input, select, textarea { font-family: var(--font-ui); }
   .vd-schedule, .vd-live-panel { padding: 16px; }
   .vd-featured-teams { gap: 8px; }
   .vd-score { font-size: 32px; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .ambient-waves-parallax, .ambient-waves-field { transform: none !important; }
 }
