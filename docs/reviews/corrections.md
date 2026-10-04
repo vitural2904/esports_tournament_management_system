@@ -29,3 +29,7 @@ API tests cover read-only preview, successful correction/restart/history, blocke
 Browser QA used only `.local/builder-qa.sqlite`. On laptop: corrected a confirmed group winner; preview listed four playoff matches; applying created a BO1 tie and history with actor/reason/before/after. On 390px mobile: game walkover finished that tie and restored seeds. Changing the original winner was then blocked because the tie had started; duration-only correction succeeded. Preview showed 1825 → 1830 seconds and saving retained the success message. Whole BO3 walkover preview listed two dependent matches; saved UI displayed QA Team 1 W / QA Team 8 L and the decision reason. Mobile document width 375px; editor/history 343px. Approved background/font remain in place.
 
 Remaining gates: independent two-axis review; roster approval/history (#8); final security/persistence/visual audit and handover (#9). No public deployment or real organization account provisioning.
+
+## Final independent review status
+
+Both axes were retried successfully. All findings were fixed and independently rechecked at ca36a67. See [combined review](./progression-corrections.md). The earlier pending-review statements above describe the initial failed reviewer turns.

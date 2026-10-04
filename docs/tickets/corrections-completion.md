@@ -1,0 +1,7 @@
+Implemented operator-only preview/apply for confirmed game edits, game walkovers and whole-match walkovers. Reasons and revisions are required. Signed previews bind the actor, exact command, expiry and current event/match revisions. Preview rolls back all writes. Apply recomputes impact inside the transaction, blocks affected started matches and records actor/time/reason/before/after. Stale, repeated or tampered requests cannot leave partial writes or history.
+
+Metadata edits remain possible with unchanged winners/advancement. Obsolete unstarted tie rounds become skipped; started ones block corrections. Whole-match decisions preserve real submitted/confirmed games without inventing series scores; UI uses W/L. A decision counts one DE match loss.
+
+UI provides before/after game details, affected matches, proposed new BO1 ties and explicit final confirmation. History is readable. Browser verified correction→tie creation, mobile game walkover→seed restoration, blocked winner change, successful metadata correction and whole BO3 decision. Concurrent editor/schedule repro now rejects old draft revisions. Completed walkovers leave the pending queue and hide game confirmation.
+
+36 API tests and production build pass. Independent Standards/Spec findings were fixed and rechecked. Reports: docs/reviews/corrections.md and docs/reviews/progression-corrections.md. Roster approval/history continues in #8; final audit/handover in #9.

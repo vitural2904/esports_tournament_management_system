@@ -1,0 +1,5 @@
+Implemented confirmed standings, points/head-to-head ranking, automatic persisted BO1 tie rounds and recursively repeated unresolved subsets. Seeds resolve into the frozen graph; later stages wait for prior stages. Exact 8-team demo routing finishes in 38 matches without reset or 39 when the lower finalist wins F1. Every non-champion receives two DE losses. No-reset DE is rejected, and independent final groups require a championship stage before locking.
+
+API examples cover full demo, reset, two/three/four-team ties, repeated ties, head-to-head, single elimination, stage barriers, restart and invalid championship formats. Browser showed exact seeds and live team names in the bracket; 390px tables/brackets scroll internally without page overflow. Approved font/gradient remain.
+
+36 API tests and production build pass. Independent Standards/Spec findings were fixed and rechecked. Reports: docs/reviews/progression.md and docs/reviews/progression-corrections.md. Correction/walkover consequences are covered in #7.

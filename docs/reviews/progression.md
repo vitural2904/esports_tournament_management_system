@@ -22,3 +22,7 @@ The frozen format graph showed unresolved source labels below the live bracket, 
 - Browser at 390 px: document width 375 px, tables 343 px, bracket scroll regions 343 px. Wider rounds scroll internally. Game-panel scroll completes at the top of the viewport. Approved gradient remains behind legible panels.
 
 No public deployment. No real organization account or credentials created. Independent reviews must be retried when available; do not treat this record as an independent review pass.
+
+## Final independent review status
+
+Both axes were retried successfully. All findings were fixed and independently rechecked at ca36a67. See [combined review](./progression-corrections.md). The earlier pending-review statements above describe the initial failed reviewer turns.
