@@ -28,10 +28,19 @@ export function createMedia(db, access, directory) {
         return {asset:null,record:directory.list()[kind].find(item=>item.id===id)};
       } catch(error) { if(db.isTransaction) db.exec('ROLLBACK'); throw error; }
     }
+    let input;
+    if (body.reuse === true) {
+      const previous = JSON.parse(before.media_json)[slot];
+      const source = previous && db.prepare('SELECT source FROM media_assets WHERE id=? AND kind=? AND subject_id=? AND slot=?').get(previous.id,kind,id,slot);
+      if (!source) fail(400,'Chưa có ảnh để chỉnh.');
+      input = Buffer.from(source.source);
+    } else {
     if (typeof body.data !== 'string' || body.data.length > Math.ceil(MAX_BYTES/3)*4) fail(413,'Ảnh tối đa 10MB.');
-    if (!body.data.length || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(body.data)) fail(400,'Dữ liệu ảnh không hợp lệ.');
-    const input = Buffer.from(body.data,'base64');
+    if (!body.data.length || body.data.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(body.data)) fail(400,'Dữ liệu ảnh không hợp lệ.');
+    input = Buffer.from(body.data,'base64');
     if(input.length > MAX_BYTES) fail(413,'Ảnh tối đa 10MB.');
+    if(input.toString('base64') !== body.data) fail(400,'Dữ liệu ảnh không hợp lệ.');
+    }
     if(typeof body.light !== 'boolean' || ![body.x,body.y].every(value=>typeof value==='number' && Number.isFinite(value) && value>=0 && value<=100)) fail(400,'Thiết lập ảnh không hợp lệ.');
     if(processing>=2) fail(429,'Đang xử lý ảnh khác. Thử lại sau.');
     processing++;
@@ -49,9 +58,9 @@ export function createMedia(db, access, directory) {
           offset+=length+12;
         }
       }
-      if(!MIME[metadata.format] || body.mime!==MIME[metadata.format] || (metadata.pages||1)>1 || animatedPng) fail(415,'Chỉ nhận PNG, JPEG hoặc WebP tĩnh đúng định dạng.');
+      if(!MIME[metadata.format] || (body.reuse !== true && body.mime!==MIME[metadata.format]) || (metadata.pages||1)>1 || animatedPng) fail(415,'Chỉ nhận PNG, JPEG hoặc WebP tĩnh đúng định dạng.');
       if(!metadata.width || !metadata.height || metadata.width>8192 || metadata.height>8192 || metadata.width*metadata.height>MAX_PIXELS) fail(413,'Ảnh tối đa 24 megapixel và 8192px mỗi chiều.');
-      normalized=await decoder.rotate().toColourspace('srgb').webp({quality:90,effort:3}).toBuffer({resolveWithObject:true});
+      normalized=body.reuse === true ? {data:input,info:{width:metadata.width,height:metadata.height}} : await decoder.rotate().toColourspace('srgb').webp({quality:90,effort:3}).toBuffer({resolveWithObject:true});
       asset={id:randomUUID(),width:normalized.info.width,height:normalized.info.height,light:body.light,x:body.x,y:body.y};
       images=[];
       for(const size of [128,512,800,1280]) {

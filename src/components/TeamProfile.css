@@ -28,3 +28,4 @@
 .tp-profile label { display: grid; gap: 8px; }
 .tp-profile form { display: grid; gap: 16px; }
 .tp-profile input,.tp-profile textarea,.tp-profile select { min-width: 0; width: 100%; min-height: 44px; background: #141d17; border: 1px solid #657966; border-radius: 5px; padding: 10px 12px; color: #f0eee8; font-size: 16px; }
+.tp-media-tools { display:grid;gap:12px; }.tp-member .media-editor-controls { padding:12px; }.tp-member .media-editor button { max-width:100%;white-space:normal; }.tp-member .team-media-portrait img { transition:transform 180ms ease; }

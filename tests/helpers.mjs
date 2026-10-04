@@ -24,7 +24,8 @@ export async function fixture(t, prepareDatabase) {
   await restart();
   async function request(path, { method = 'GET', body, cookie, origin = ORIGIN } = {}) {
     const response = await fetch(base + path, { method, headers: { ...(method !== 'GET' ? { 'Content-Type': 'application/json', Origin: origin } : {}), ...(cookie ? { Cookie: cookie } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
-    return { status: response.status, body: await response.json(), cookie: response.headers.get('set-cookie')?.split(';')[0], cookieHeader: response.headers.get('set-cookie') };
+    const contentType = response.headers.get('content-type');
+    return { status: response.status, body: contentType?.startsWith('image/') ? Buffer.from(await response.arrayBuffer()) : await response.json(), contentType, cookie: response.headers.get('set-cookie')?.split(';')[0], cookieHeader: response.headers.get('set-cookie') };
   }
   return { request, restart, databasePath: join(directory, 'test.sqlite'), directory };
 }
