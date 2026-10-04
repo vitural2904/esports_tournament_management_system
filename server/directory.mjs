@@ -6,8 +6,8 @@ function text(value, label, max = 80) {
   return value.trim().normalize('NFC');
 }
 const key = value => value.normalize('NFKC').toLocaleLowerCase('vi');
-const teamDto = row => ({ id: row.id, name: row.name, tag: row.tag, description: row.description, revision: row.revision, archived: Boolean(row.archived) });
-const playerDto = row => ({ id: row.id, name: row.name, handle: row.handle, position: row.position, revision: row.revision, archived: Boolean(row.archived) });
+const teamDto = row => ({ id: row.id, name: row.name, tag: row.tag, description: row.description, revision: row.revision, archived: Boolean(row.archived), media: JSON.parse(row.media_json || '{}') });
+const playerDto = row => ({ id: row.id, name: row.name, handle: row.handle, position: row.position, revision: row.revision, archived: Boolean(row.archived), media: JSON.parse(row.media_json || '{}') });
 
 export function createDirectory(db) {
   const tables = { teams: { dto: teamDto, field: 'tag', keyField: 'name_key' }, players: { dto: playerDto, field: 'handle', keyField: 'handle_key' } };
@@ -62,9 +62,9 @@ export function createDirectory(db) {
       const row = db.prepare('SELECT * FROM players WHERE id=?').get(id);
       if (!row || row.archived) fail(400, 'Tuyển thủ không có trong danh bạ hiện tại.');
       const previous = existing?.players.find(player => player.id === id);
-      return previous || { id: row.id, name: row.name, handle: row.handle, position: row.position };
+      return previous || { id: row.id, name: row.name, handle: row.handle, position: row.position, media: JSON.parse(row.media_json || '{}') };
     });
-    const snapshot = { team: existing?.team || { id: team.id, name: team.name, tag: team.tag, description: team.description }, players };
+    const snapshot = { team: existing?.team || { id: team.id, name: team.name, tag: team.tag, description: team.description, media: JSON.parse(team.media_json || '{}') }, players };
     const ownsTransaction = !db.isTransaction;
     if (ownsTransaction) db.exec('BEGIN IMMEDIATE');
     try {
