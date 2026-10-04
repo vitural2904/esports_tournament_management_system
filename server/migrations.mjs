@@ -19,6 +19,11 @@ migrations.push(`ALTER TABLE users ADD COLUMN disabled INTEGER NOT NULL DEFAULT 
  CREATE TABLE account_history (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), actor_id TEXT NOT NULL REFERENCES users(id), action TEXT NOT NULL, before_json TEXT NOT NULL, after_json TEXT NOT NULL, created_at TEXT NOT NULL);
  CREATE INDEX account_history_by_user ON account_history(user_id);`);
 
+migrations.push(`ALTER TABLE teams ADD COLUMN media_json TEXT NOT NULL DEFAULT '{}';
+ ALTER TABLE players ADD COLUMN media_json TEXT NOT NULL DEFAULT '{}';
+ CREATE TABLE media_assets (id TEXT PRIMARY KEY,kind TEXT NOT NULL,subject_id TEXT NOT NULL,slot TEXT NOT NULL,width INTEGER NOT NULL,height INTEGER NOT NULL,source BLOB NOT NULL,created_at TEXT NOT NULL);
+ CREATE TABLE media_images (asset_id TEXT NOT NULL REFERENCES media_assets(id),size INTEGER NOT NULL,data BLOB NOT NULL,PRIMARY KEY(asset_id,size));`);
+
 export function migrate(db) {
   db.exec('BEGIN IMMEDIATE');
   try {

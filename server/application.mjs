@@ -13,6 +13,7 @@ import { createChanges } from './changes.mjs';
 import { createRosters } from './rosters.mjs';
 import { migrate } from './migrations.mjs';
 import { createAccounts, publicUser } from './accounts.mjs';
+import { createMedia } from './media.mjs';
 
 const derive = promisify(scrypt);
 const SESSION_MS = 12 * 60 * 60 * 1000;
@@ -30,11 +31,11 @@ function credentials(body) {
   if (typeof body.username !== 'string' || !/^[a-z0-9_.-]{3,40}$/i.test(body.username)) fail(400, 'Tên đăng nhập cần 3–40 chữ, số hoặc . _ -');
   if (typeof body.password !== 'string' || body.password.length < 12 || body.password.length > 128) fail(400, 'Mật khẩu cần 12–128 ký tự.');
 }
-async function jsonBody(request) {
+async function jsonBody(request, maxBytes = 32768) {
   if (!request.headers['content-type']?.startsWith('application/json')) fail(415, 'Yêu cầu dữ liệu JSON.');
   let length = 0;
   const chunks = [];
-  for await (const chunk of request) { length += chunk.length; if (length > 32768) fail(413, 'Dữ liệu quá lớn.'); chunks.push(chunk); }
+  for await (const chunk of request) { length += chunk.length; if (length > maxBytes) fail(413, 'Dữ liệu quá lớn.'); chunks.push(chunk); }
   try { const body = JSON.parse(Buffer.concat(chunks).toString()); if (!body || typeof body !== 'object' || Array.isArray(body)) fail(400, 'Dữ liệu không hợp lệ.'); return body; }
   catch { fail(400, 'Dữ liệu không hợp lệ.'); }
 }
@@ -55,6 +56,7 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
   const history = createHistory(db);
   const changes = createChanges(db, results, history);
   const rosters = createRosters(db, directory, history);
+  const media = createMedia(db, access, directory);
   const loginFailures = new Map();
   const unknownPassword = await passwordHash(randomBytes(32).toString('hex'));
   const tokenHash = token => createHash('sha256').update(token).digest('hex');
@@ -119,8 +121,8 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
         return send(200, { user: publicUser(user) }, createSession(user));
       }
       let user = currentUser(request);
-      async function authenticatedBody(allowPasswordChange = false) {
-        const body = await jsonBody(request);
+      async function authenticatedBody(allowPasswordChange = false, maxBytes) {
+        const body = await jsonBody(request, maxBytes);
         user = currentUser(request);
         if (user.must_change && !allowPasswordChange) fail(403, 'Đổi mật khẩu trước khi dùng ứng dụng.');
         return body;
@@ -153,6 +155,23 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
         return send(200, { user: publicUser(updated) }, createSession(updated));
       }
       if (user.must_change) fail(403, 'Đổi mật khẩu trước khi dùng ứng dụng.');
+      const mediaWrite = path.match(/^\/api\/(teams|players)\/([a-zA-Z0-9-]+)\/media\/(logo|cover|portrait)$/);
+      if (mediaWrite && method === 'POST') {
+        if (!access.managesDirectory(user)) fail(403, 'Chưa có quyền sửa ảnh danh bạ.');
+        const body = await authenticatedBody(false, 14 * 1024 * 1024);
+        const authorize = () => {
+          const fresh = currentUser(request);
+          if (fresh.must_change || !access.managesDirectory(fresh)) fail(403, 'Chưa có quyền sửa ảnh danh bạ.');
+        };
+        return send(200, await media.save(mediaWrite[1], mediaWrite[2], mediaWrite[3], body, authorize));
+      }
+      const mediaRead = path.match(/^\/api\/media\/([a-zA-Z0-9-]+)\/(128|512|800|1280)$/);
+      if (mediaRead && method === 'GET') {
+        const context = new URL(request.url, 'http://localhost').searchParams.get('tournamentId');
+        const image = media.read(user, mediaRead[1], Number(mediaRead[2]), context);
+        response.writeHead(200, { 'Content-Type': 'image/webp', 'Content-Length': image.length, 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' });
+        return response.end(image);
+      }
       const rosterRoute = path.match(/^\/api\/tournaments\/([a-zA-Z0-9-]+)\/registrations\/([a-zA-Z0-9-]+)\/additions$/);
       if (rosterRoute && method === 'POST') {
         const body = await authenticatedBody();

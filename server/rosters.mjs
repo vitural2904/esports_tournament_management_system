@@ -17,7 +17,7 @@ export function createRosters(db, directory, history) {
       const additions = ids.map(id => {
         const player = db.prepare('SELECT * FROM players WHERE id=?').get(id);
         if (!player || player.archived) fail(400, 'Tuyển thủ không có trong danh bạ hiện tại.');
-        return { id: player.id, name: player.name, handle: player.handle };
+        return { id: player.id, name: player.name, handle: player.handle, media: JSON.parse(player.media_json || '{}') };
       });
       const snapshot = { team: before.team, players: [...before.players, ...additions] };
       db.prepare('UPDATE registrations SET snapshot_json=?,revision=revision+1 WHERE tournament_id=? AND team_id=?').run(JSON.stringify(snapshot), tournamentId, teamId);
