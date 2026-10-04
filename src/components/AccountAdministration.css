@@ -18,6 +18,4 @@
 .account-history { list-style:none; padding:0; margin:20px 0 0; }
 .account-history li { display:grid; gap:8px; padding:16px 0; border-top:1px solid #596b60; font-size:15px; line-height:1.6; overflow-wrap:anywhere; }
 .account-history span { color:#becab6; }
-.op-admin-nav { display:flex; gap:12px; margin-bottom:24px; flex-wrap:wrap; }
-.op-admin-nav button[aria-current=page] { color:#18221b; background:var(--mint-300); }
 @media(max-width:700px) { .account-filters { grid-template-columns:1fr; }.account-heading { flex-wrap:wrap; }.account-table th,.account-table td { padding:12px 8px; }.op-header { flex-wrap:wrap; }.op-header > div { gap:8px; flex-wrap:wrap; } }
