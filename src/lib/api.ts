@@ -26,4 +26,4 @@ export async function api<T>(path: string, body?: object): Promise<T> {
   return value;
 }
 
-export type TeamProfileData = { team: Registration["team"]; directoryTeam: Team | null; registration: Registration | null; tournament: { id: string; name: string } | null; participations: { id: string; name: string }[]; opponents: Registration["team"][]; matches: Match[]; canManage: boolean; canAdd: boolean };
+export type TeamProfileData = { team: Registration["team"]; directoryTeam: Team | null; registration: Registration | null; tournament: { id: string; name: string } | null; participations: { id: string; name: string }[]; opponents: Registration["team"][]; matches: Match[]; signalMatches: Match[]; canManage: boolean; canAdd: boolean };

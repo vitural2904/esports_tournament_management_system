@@ -18,7 +18,7 @@ const gameStates = { draft: "Nháp", submitted: "Chờ xác nhận", confirmed: 
 const pickFields = { bluePicks: "Xanh chọn", redPicks: "Đỏ chọn", blueBans: "Xanh cấm", redBans: "Đỏ cấm" };
 type PickText = Partial<Record<keyof typeof pickFields, string>>;
 
-export default function MatchOperations({ tournamentId, revision, onEventChanged, onOpenTeam, initialMatchId }: { tournamentId: string; revision?: number; onEventChanged?: () => Promise<void>; onOpenTeam?: (teamId: string) => void; initialMatchId?: string }) {
+export default function MatchOperations({ tournamentId, revision, onEventChanged, onOpenTeam, initialMatchId, initialMatchRequest }: { tournamentId: string; revision?: number; onEventChanged?: () => Promise<void>; onOpenTeam?: (teamId: string) => void; initialMatchId?: string; initialMatchRequest?: number }) {
   const [event, setEvent] = useState<Tournament | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
   const signals = useMatchSignals(matches);
@@ -67,10 +67,11 @@ export default function MatchOperations({ tournamentId, revision, onEventChanged
     setError(cached && (cached.game?.revision || 0) !== (current?.revision || 0) ? "Game đã được người khác sửa. Bản chưa lưu giữ nguyên. Tải lại trận trước khi sửa tiếp." : ""); setNotice("");
   }
   useEffect(() => {
-    if (!initialMatchId || openedInitialMatch.current === initialMatchId) return;
+    const requestKey = `${initialMatchRequest ?? 0}:${initialMatchId}`;
+    if (!initialMatchId || openedInitialMatch.current === requestKey) return;
     const requested = matches.find(item => item.id === initialMatchId);
-    if (requested) { open(requested); openedInitialMatch.current = initialMatchId; }
-  }, [initialMatchId, matches]);
+    if (requested) { open(requested); openedInitialMatch.current = requestKey; }
+  }, [initialMatchId, initialMatchRequest, matches]);
   useEffect(() => {
     let current = true;
     void Promise.all([api<{ tournament: Tournament }>(`/tournaments/${tournamentId}`), api<{ matches: Match[] }>(`/tournaments/${tournamentId}/matches`), api<Standings>(`/tournaments/${tournamentId}/standings`), api<{ history: HistoryItem[] }>(`/tournaments/${tournamentId}/history`)]).then(([tournament, list, ranking, audit]) => {

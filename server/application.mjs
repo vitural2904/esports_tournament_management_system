@@ -167,8 +167,9 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
           if (tournamentId && !registration && !canManage) fail(404, 'Đội chưa đăng ký trong giải.');
           const team = tournamentId && registration ? registration.team : directory.team(teamId);
           const participations = directory.tournaments().filter(item => access.roles(user, item.id).length && item.registrations.some(record => record.team.id === teamId)).map(item => ({ id: item.id, name: item.name }));
-          const matches = event?.lockedAt ? results.view(tournamentId).list().filter(match => match.teams.includes(teamId)) : [];
-          return send(200, { profile: { team, registration, tournament: event ? { id: event.id, name: event.name } : null, participations, matches, opponents: event?.registrations.map(item => item.team) || [], canManage, canAdd: Boolean(event && access.roles(user, event.id).includes('operator') && (registration || !event.lockedAt)), directoryTeam: canManage ? directory.team(teamId) : null } });
+          const signalMatches = event?.lockedAt ? results.view(tournamentId).list() : [];
+          const matches = signalMatches.filter(match => match.teams.includes(teamId));
+          return send(200, { profile: { team, registration, tournament: event ? { id: event.id, name: event.name } : null, participations, matches, signalMatches, opponents: event?.registrations.map(item => item.team) || [], canManage, canAdd: Boolean(event && access.roles(user, event.id).includes('operator') && (registration || !event.lockedAt)), directoryTeam: canManage ? directory.team(teamId) : null } });
         }
         if (method === 'POST' && action === 'members' && tournamentId) {
           const body = await authenticatedBody();
