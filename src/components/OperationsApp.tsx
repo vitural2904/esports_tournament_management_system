@@ -63,7 +63,9 @@ export default function OperationsApp() {
     const data = new FormData(form);
     try {
       await api("/users", { username: data.get("username"), displayName: data.get("displayName"), password: data.get("password") });
-      const result = await api<{ users: Account[] }>("/users"); setAccounts(result.users); form.reset(); setNotice("Đã cấp tài khoản. Thành viên phải đổi mật khẩu ở lần đầu.");
+      form.reset(); setNotice("Đã cấp tài khoản. Thành viên phải đổi mật khẩu ở lần đầu.");
+      try { const result = await api<{ users: Account[] }>("/users"); setAccounts(result.users); }
+      catch { setError("Đã cấp tài khoản. Chưa tải được danh sách mới. Tải lại trang để xem."); }
     } catch (problem) { setError(problem instanceof Error ? problem.message : "Không thể cấp tài khoản."); }
     finally { setBusy(false); }
   }
