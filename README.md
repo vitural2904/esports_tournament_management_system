@@ -72,7 +72,7 @@ npm test
 npm run build
 ```
 
-CI chạy trên mọi push và pull request. Gồm test API/domain, kiểm tra TypeScript, build và bốn kiểm tra UI bằng Chromium. Khi UI lỗi, GitHub lưu report, screenshot và trace trong artifact `ui-regression-report` trong 7 ngày.
+CI chạy trên mọi push và pull request. Gồm test API/domain, kiểm tra TypeScript, build và năm kiểm tra UI bằng Chromium. Khi UI lỗi, GitHub lưu report, screenshot và trace trong artifact `ui-regression-report` trong 7 ngày.
 
 Chạy UI local:
 
@@ -84,6 +84,8 @@ npm run test:ui
 Mỗi test UI khởi động API thật và bản giao diện đã build trên cổng ngẫu nhiên, với database mới trong thư mục tạm. Không dùng app đang chạy, `DATABASE_PATH` hay tài khoản thật. Ba luồng kiểm tra: upload logo rồi lưu tên đang nhập; tín hiệu “Tiếp theo” tính trên toàn giải; mở A → chọn B → hồ sơ → mở lại A, giữ bản game chưa lưu. Report ở `output/playwright/report/index.html`. Xem bằng `npx playwright show-report output/playwright/report`.
 
 Test toàn luồng dùng giải 4 đội loại trực tiếp BO1, mỗi đội 5 người. Tạo giải, đăng ký, lưu/chốt thể thức, đặt lịch, lưu nháp, gửi và xác nhận cả ba trận qua UI. Kiểm tra nháp/game chưa xác nhận chưa tính điểm hay đưa đội vào vòng sau; chung kết có đúng hai đội thắng; nhà vô địch và lịch còn sau tải lại. Chỉ tài khoản và danh bạ thử được chuẩn bị qua API. Các thể thức khác đã có test API/domain riêng.
+
+Test phân vai dùng ba phiên riêng: quản trị cấp tài khoản/quyền qua UI; điều hành đăng ký, chốt, đặt lịch; nhập liệu đổi mật khẩu lần đầu, lưu nháp và gửi game; điều hành xác nhận. Kiểm tra nút theo quyền và API trả 403 khi vượt quyền, dữ liệu giữ nguyên sau yêu cầu bị chặn, giải chưa được cấp không hiển thị và không đọc được. Sau khi quản trị thu hồi quyền qua UI, phiên nhập liệu đang mở mất quyền truy cập; điều hành vẫn truy cập được. Danh bạ và một giải riêng dùng làm dữ liệu thử được chuẩn bị qua API.
 
 Test dùng database tạm, tài khoản thử riêng và API loopback. Không đụng database thật. Mật khẩu băm scrypt; phiên được lưu dạng hash, cookie HttpOnly/SameSite Strict. Đổi mật khẩu thu hồi toàn bộ phiên của tài khoản. Đăng xuất thu hồi phiên hiện tại.
 
