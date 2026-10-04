@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { Check, LockKeyhole, RefreshCw, Users } from "lucide-react";
@@ -14,21 +14,26 @@ export default function RegistrationPanel({ event, teams, players, onSaved }: { 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const drafts = useRef(new Map<string, { base: Registration | null; selected: string[]; reason: string }>());
   const reduced = useReducedMotion();
   const current = event.registrations.find(item => item.team.id === teamId);
   const locked = Boolean(current?.lockedAt || base?.lockedAt);
   const changed = (current?.revision || 0) !== (base?.revision || 0) || Boolean(current?.lockedAt) !== Boolean(base?.lockedAt);
   const assigned = new Set(event.registrations.flatMap(item => item.players.map(player => player.id)));
   const candidates = players.filter(player => !player.archived && (!locked || !assigned.has(player.id)));
-  function choose(id: string, source = event) {
+  function choose(id: string, source = event, discard = false) {
+    if (!discard && id === teamId) return;
+    if (!discard && teamId) drafts.current.set(teamId, { base, selected, reason });
+    if (discard) drafts.current.delete(id);
     const registration = source.registrations.find(item => item.team.id === id) || null;
-    setTeamId(id); setBase(registration); setSelected(registration?.lockedAt ? [] : registration?.players.map(player => player.id) || []);
-    setReason(""); setError(""); setNotice("");
+    const cached = drafts.current.get(id);
+    setTeamId(id); setBase(cached ? cached.base : registration); setSelected(cached ? cached.selected : registration?.lockedAt ? [] : registration?.players.map(player => player.id) || []);
+    setReason(cached?.reason || ""); setError(""); setNotice("");
   }
   function toggle(id: string) { setSelected(values => values.includes(id) ? values.filter(value => value !== id) : [...values, id]); }
   async function reload() {
     setBusy(true); setError("");
-    try { const fresh = await api<{ tournament: Tournament }>(`/tournaments/${event.id}`); await onSaved(); choose(teamId, fresh.tournament); }
+    try { const fresh = await api<{ tournament: Tournament }>(`/tournaments/${event.id}`); await onSaved(); choose(teamId, fresh.tournament, true); }
     catch (problem) { setError(problem instanceof Error ? problem.message : "Chưa tải được đăng ký."); }
     finally { setBusy(false); }
   }
@@ -38,6 +43,7 @@ export default function RegistrationPanel({ event, teams, players, onSaved }: { 
     try {
       const path = `/tournaments/${event.id}/registrations${locked ? `/${teamId}/additions` : ""}`;
       const result = await api<{ registration: Registration }>(path, { teamId, playerIds: selected, revision: base?.revision || 0, ...(locked ? { reason } : {}) });
+      drafts.current.delete(teamId);
       setBase(result.registration); setSelected(locked ? [] : result.registration.players.map(player => player.id)); setReason("");
       setNotice(locked ? "Đã duyệt bổ sung. Tuyển thủ có thể chọn trong đội hình game." : "Đã lưu đăng ký của đội.");
       try { await onSaved(); } catch { setError("Đã lưu. Chưa tải được danh sách mới. Tải lại đăng ký để xem."); }
