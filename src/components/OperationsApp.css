@@ -1,4 +1,4 @@
-.op-shell { min-height: 100vh; position: relative; isolation: isolate; background: var(--surface-base); font-family: var(--font-ui); }
+.op-shell { min-height: 100vh; position: relative; isolation: isolate; overflow-x: clip; background: var(--surface-base); font-family: var(--font-ui); }
 .op-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 88px; padding: 20px 32px; border-bottom: 1px solid #465248; }
 .op-header > div { display: flex; align-items: center; gap: 20px; font-size: 15px; }
 .op-shell .brand-mark { background: var(--coral-500); }

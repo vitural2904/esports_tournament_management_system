@@ -90,3 +90,15 @@ test('account list shows tournament permissions and grant audit without allowing
   assert.deepEqual(history[0].after.roles, ['entry']);
   assert.equal((await f.request('/api/users', { cookie: user.cookie })).status, 403);
 });
+
+test('a password change audits the actual latest account name when an admin rename overlaps hashing', async t => {
+  const f = await fixture(t), admin = await owner(f), user = await member(f, admin);
+  const changing = f.request('/api/password', { method: 'POST', cookie: user.cookie, body: { currentPassword: 'Changed-Member-Password-42!', newPassword: 'Concurrent-Name-Password-42!' } });
+  const renamed = await f.request(`/api/users/${user.id}`, { method: 'POST', cookie: admin, body: { revision: user.revision, displayName: 'New member name' } });
+  assert.equal(renamed.status, 200);
+  assert.equal((await changing).status, 200);
+  const history = (await f.request(`/api/users/${user.id}/history`, { cookie: admin })).body.history;
+  assert.equal(history[0].action, 'password_changed');
+  assert.equal(history[0].before.displayName, 'New member name');
+  assert.equal(history[0].before.revision, renamed.body.user.revision);
+});

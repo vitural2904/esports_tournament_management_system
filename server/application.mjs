@@ -142,10 +142,11 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
         db.exec('BEGIN IMMEDIATE');
         try {
           // An overlapping password change must not overwrite the newer password.
-          if (findUser(user.id).password_hash !== user.password_hash) fail(409, 'Mật khẩu vừa thay đổi. Đăng nhập lại.');
+          const before = findUser(user.id);
+          if (before.password_hash !== user.password_hash) fail(409, 'Mật khẩu vừa thay đổi. Đăng nhập lại.');
           db.prepare('UPDATE users SET password_hash=?,must_change=0,revision=revision+1 WHERE id=?').run(hash, user.id);
           db.prepare('DELETE FROM sessions WHERE user_id=?').run(user.id);
-          accounts.record(user.id, user.id, 'password_changed', publicUser(user), publicUser(findUser(user.id)));
+          accounts.record(user.id, user.id, 'password_changed', publicUser(before), publicUser(findUser(user.id)));
           db.exec('COMMIT');
         } catch (error) { if (db.isTransaction) db.exec('ROLLBACK'); throw error; }
         const updated = findUser(user.id);

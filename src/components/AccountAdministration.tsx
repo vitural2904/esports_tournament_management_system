@@ -13,6 +13,8 @@ const roleNames = (roles: TournamentRole[]) => roles.map(role => role === "opera
 export default function AccountAdministration({ accounts, currentUserId, onChanged }: { accounts: Account[]; currentUserId: string; onChanged: () => Promise<Account[]> }) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [eventFilter, setEventFilter] = useState("");
   const [selected, setSelected] = useState<Account | null>(null);
   const [history, setHistory] = useState<AccountHistoryItem[]>([]);
   const [events, setEvents] = useState<Tournament[]>([]);
@@ -50,7 +52,15 @@ export default function AccountAdministration({ accounts, currentUserId, onChang
         const refreshed = await onChanged();
         if (selected) {
           const updated = refreshed.find(account => account.id === selected.id);
-          if (updated) { setSelected(updated); const grant = updated.grants?.find(item => item.tournamentId === eventId); setGrantRevision(grant?.revision || 0); }
+          if (updated) {
+            setSelected(updated);
+            // Only this grant's own save can advance its draft base. A name/security
+            // refresh must not silently rebase unsaved roles over another admin's edit.
+            if (path === `/tournaments/${eventId}/grants`) {
+              const grant = updated.grants?.find(item => item.tournamentId === eventId);
+              setGrantRevision(grant?.revision || 0); setRoles(grant?.roles || []);
+            }
+          }
           setHistory((await api<{ history: AccountHistoryItem[] }>(`/users/${selected.id}/history`)).history);
         }
       } catch { setError("Đã lưu thao tác. Chưa tải được dữ liệu mới. Bấm Tải lại trước khi sửa tiếp."); }
@@ -67,11 +77,17 @@ export default function AccountAdministration({ accounts, currentUserId, onChang
     event.preventDefault(); const form = event.currentTarget, data = new FormData(form);
     void run("/users", { username: data.get("username"), displayName: data.get("displayName"), password: data.get("password") }, "Đã cấp tài khoản. Thành viên phải đổi mật khẩu lần đầu.", form);
   }
-  const visible = accounts.filter(account => `${account.displayName} ${account.username}`.toLocaleLowerCase("vi").includes(search.toLocaleLowerCase("vi")) && (filter === "all" || (filter === "disabled" ? account.disabled : filter === "admin" ? account.admin : !account.disabled && !account.mustChangePassword)));
+  const visible = accounts.filter(account => {
+    const grants = (account.grants || []).filter(grant => grant.roles.length && (!eventFilter || grant.tournamentId === eventFilter));
+    const text = `${account.displayName} ${account.username} ${status(account)} ${account.admin ? "Quản trị" : ""} ${grants.map(grant => `${grant.tournamentName} ${roleNames(grant.roles)}`).join(" ")}`;
+    const matchesStatus = filter === "all" || (filter === "disabled" ? account.disabled : filter === "pending" ? !account.disabled && account.mustChangePassword : !account.disabled && !account.mustChangePassword);
+    const matchesRole = roleFilter === "all" || (roleFilter === "admin" ? account.admin : roleFilter === "none" ? !account.admin && !account.grants?.some(grant => grant.roles.length) : account.admin || grants.some(grant => grant.roles.includes(roleFilter as TournamentRole)));
+    return text.toLocaleLowerCase("vi").includes(search.toLocaleLowerCase("vi")) && matchesStatus && matchesRole && (!eventFilter || account.admin || grants.length > 0);
+  });
   return <div className="account-admin">
     <section className="op-panel"><div className="account-heading"><div><h2>Tài khoản</h2><p>{accounts.length} thành viên trong ban tổ chức.</p></div><button type="button" disabled={busy} onClick={() => void refresh()}>Tải lại</button></div>
       {error && <p className="op-error" role="alert">{error}</p>}{notice && <p className="op-notice" role="status">{notice}</p>}
-      <div className="account-filters"><label><span><Search size={16} /> Tìm thành viên</span><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Tên hoặc tên đăng nhập" /></label><label>Hiển thị<select value={filter} onChange={event => setFilter(event.target.value)}><option value="all">Tất cả</option><option value="active">Hoạt động</option><option value="disabled">Bị khóa</option><option value="admin">Quản trị</option></select></label></div>
+      <div className="account-filters"><label className="account-search"><span><Search size={16} /> Tìm thành viên</span><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Tên hoặc tên đăng nhập" /></label><label>Trạng thái<select value={filter} onChange={event => setFilter(event.target.value)}><option value="all">Tất cả</option><option value="active">Hoạt động</option><option value="disabled">Bị khóa</option><option value="pending">Chờ đổi mật khẩu</option></select></label><label>Vị trí<select value={roleFilter} onChange={event => setRoleFilter(event.target.value)}><option value="all">Tất cả</option><option value="admin">Quản trị</option><option value="operator">Điều hành</option><option value="entry">Nhập liệu</option><option value="none">Chưa có quyền giải</option></select></label><label>Lọc theo giải<select value={eventFilter} onChange={event => setEventFilter(event.target.value)}><option value="">Tất cả giải</option>{events.map(tournament => <option key={tournament.id} value={tournament.id}>{tournament.name}</option>)}</select></label></div>
       <div className="account-table" role="region" aria-label="Danh sách tài khoản" tabIndex={0}><table><thead><tr><th>Thành viên</th><th>Trạng thái</th><th>Quyền</th><th>Thao tác</th></tr></thead><tbody>{visible.map(account => <tr key={account.id}><td><strong>{account.displayName}</strong><span>{account.username}{account.id === currentUserId ? " · Bạn" : ""}</span></td><td>{status(account)}</td><td>{account.admin ? "Quản trị toàn tổ chức" : account.grants?.filter(grant => grant.roles.length).map(grant => <span key={grant.tournamentId}>{grant.tournamentName}: {roleNames(grant.roles)}</span>)}{!account.admin && !account.grants?.some(grant => grant.roles.length) && "Chưa có quyền giải"}</td><td><button type="button" disabled={busy} aria-pressed={selected?.id === account.id} onClick={() => choose(account)}>Quản lý<span className="sr-only"> {account.username}</span></button></td></tr>)}</tbody></table></div>{!visible.length && <p>Không có thành viên phù hợp.</p>}
     </section>
     {selected && <section className="op-panel account-detail" key={selected.id}><div className="account-heading"><div><h2>{selected.displayName}</h2><p>{selected.username} · {status(selected)}</p></div><button type="button" disabled={busy} onClick={() => setSelected(null)}>Đóng</button></div>

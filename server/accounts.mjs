@@ -13,6 +13,9 @@ export function createAccounts(db) {
     const actor = read(id);
     if (!actor.admin || actor.disabled || actor.must_change) fail(403, 'Chỉ quản trị được quản lý tài khoản.');
   }
+  function requireReplacement(user) {
+    if (user.admin && !user.disabled && !user.must_change && db.prepare('SELECT COUNT(*) n FROM users WHERE admin=1 AND disabled=0 AND must_change=0').get().n <= 1) fail(400, 'Cần giữ ít nhất một quản trị hoạt động.');
+  }
   function record(userId, actorId, action, before, after) {
     db.prepare('INSERT INTO account_history VALUES(?,?,?,?,?,?,?)').run(randomUUID(), userId, actorId, action, JSON.stringify(before), JSON.stringify(after), new Date().toISOString());
   }
@@ -36,7 +39,7 @@ export function createAccounts(db) {
       const admin = body.admin ?? Boolean(user.admin), disabled = body.disabled ?? Boolean(user.disabled);
       const securityChanged = admin !== Boolean(user.admin) || disabled !== Boolean(user.disabled);
       if (id === actorId && securityChanged) fail(400, 'Không thể tự khóa hoặc tự đổi quyền quản trị.');
-      if (user.admin && !user.disabled && !user.must_change && (!admin || disabled) && db.prepare('SELECT COUNT(*) n FROM users WHERE admin=1 AND disabled=0 AND must_change=0').get().n <= 1) fail(400, 'Cần giữ ít nhất một quản trị hoạt động.');
+      if (!admin || disabled) requireReplacement(user);
       db.prepare('UPDATE users SET display_name=?,admin=?,disabled=?,revision=revision+1 WHERE id=?').run(body.displayName?.trim() ?? user.display_name, Number(admin), Number(disabled), id);
       if (securityChanged) db.prepare('DELETE FROM sessions WHERE user_id=?').run(id);
       const updated = publicUser(read(id));
@@ -53,7 +56,7 @@ export function createAccounts(db) {
       const user = read(id);
       if (body.revision !== user.revision) fail(409, 'Tài khoản vừa thay đổi. Tải lại trước khi sửa.');
       if (id === actorId) fail(400, 'Dùng Đổi mật khẩu hoặc Đăng xuất cho tài khoản của bạn.');
-      if (hash && user.admin && !user.disabled && !user.must_change && db.prepare('SELECT COUNT(*) n FROM users WHERE admin=1 AND disabled=0 AND must_change=0').get().n <= 1) fail(400, 'Cần giữ ít nhất một quản trị hoạt động.');
+      if (hash) requireReplacement(user);
       if (hash) db.prepare('UPDATE users SET password_hash=?,must_change=1,revision=revision+1 WHERE id=?').run(hash, id);
       else db.prepare('UPDATE users SET revision=revision+1 WHERE id=?').run(id);
       db.prepare('DELETE FROM sessions WHERE user_id=?').run(id);
