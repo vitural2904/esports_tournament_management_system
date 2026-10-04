@@ -31,7 +31,7 @@ jobs:
         run: npm run test:ui
       - name: Upload UI report and failure evidence
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: ui-regression-report
           path: output/playwright/
