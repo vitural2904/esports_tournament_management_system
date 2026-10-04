@@ -33,6 +33,16 @@ Database ở `data/bracket.sqlite`, ngoài thư mục public và bị loại kh�
 
 Khi có thông báo dữ liệu đã đổi, tải lại mục đang chỉnh. Bản chưa lưu giữ nguyên khi tải dữ liệu liên quan hoặc đổi đội trong đăng ký; nút “Tải lại …” ghi rõ khi bỏ bản đang nhập. Đăng xuất/đóng trang sẽ bỏ phần chưa lưu; lưu nháp trước.
 
+## Hồ sơ đội và ảnh
+
+Mở hồ sơ từ danh bạ, đăng ký hoặc trận đấu. Hồ sơ dùng mẫu A. Chọn giải để xem đăng ký của mùa đó. Một đội có thể có 7–8 người; giới hạn bảo vệ hiện tại là 20. Mỗi game vẫn chọn 5 người thi đấu. Không gán chính thức/dự bị cố định.
+
+Thêm người có sẵn hoặc tạo người mới ngay trong hồ sơ. Nickname bắt buộc; tên, vị trí và ảnh tùy chọn. Đăng ký đã khóa cần người điều hành duyệt bổ sung và ghi lý do.
+
+Logo, ảnh bìa và chân dung nhận PNG/JPEG/WebP tĩnh, tối đa 10 MB, 24 triệu pixel và 8192 pixel mỗi chiều. Có chỉnh điểm hiển thị và nền sáng. Ảnh được xử lý, bỏ metadata và lưu trong database. Backup gồm cả ảnh. Sửa danh bạ không đổi tên hay ảnh trong đăng ký cũ.
+
+Hồ sơ, danh sách, lịch, nhánh và màn nhập game dùng chung tín hiệu trận. Lịch gần tới không tự chuyển trận sang đang thi đấu. [Đặc tả hồ sơ, ảnh và tín hiệu](docs/specs/team-profiles-media-signals.md).
+
 ## Sao lưu và phục hồi
 
 Sao lưu có thể chạy khi app đang mở. Lệnh dùng SQLite backup để gồm cả dữ liệu đang nằm trong WAL. Chọn tên file mới; không ghi đè file có sẵn.
