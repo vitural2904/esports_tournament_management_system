@@ -8,6 +8,12 @@ import { createApplication } from '../server/application.mjs';
 import { scryptSync } from 'node:crypto';
 
 const run = promisify(execFile);
+test('startup refuses a database from a newer app before exposing any API', async t => {
+  await assert.rejects(fixture(t, db => {
+    db.exec('CREATE TABLE schema_version (version INTEGER PRIMARY KEY); INSERT INTO schema_version VALUES(999);');
+  }), /Phiên bản database không được hỗ trợ/);
+});
+
 test('legacy startup markers and existing accounts/catalog recover through migration and survive another restart', async t => {
   const salt = 'legacy-test-salt';
   const hash = `${salt}:${scryptSync(password, salt, 64).toString('hex')}`;

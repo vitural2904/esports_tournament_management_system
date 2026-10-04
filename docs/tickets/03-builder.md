@@ -9,10 +9,10 @@ Tạo giải, phân quyền theo giải và chốt thể thức
 
 ## Acceptance criteria
 
-- [ ] Tạo nhiều giải; gán operator/entry cho từng giải, một người nhiều vị trí.
-- [ ] Bố cục C, preset vòng tròn/loại trực tiếp/loại kép; chỉnh cấu hình trước khi khóa.
-- [ ] Chốt thể thức đúng một lần; API chặn sửa cấu trúc/BO/bảng sau khóa.
-- [ ] Người không có grant không đọc hoặc sửa giải. Nhánh hiển thị nguồn seed chưa xác định. Test restart và revision.
+- [x] Tạo nhiều giải; gán operator/entry cho từng giải, một người nhiều vị trí.
+- [x] Bố cục C, preset vòng tròn/loại trực tiếp/loại kép; chỉnh cấu hình trước khi khóa.
+- [x] Chốt thể thức đúng một lần; API chặn sửa cấu trúc/BO/bảng sau khóa.
+- [x] Người không có grant không đọc hoặc sửa giải. Nhánh hiển thị nguồn seed chưa xác định. Test restart và revision.
 
 ## Blocked by
 

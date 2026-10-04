@@ -9,10 +9,10 @@ Tính bảng, trận phụ, seed và nhánh loại kép
 
 ## Acceptance criteria
 
-- [ ] Mẫu hai bảng 4 đội, 2 lượt tạo 24 trận bảng; vào nhánh cả 8 đội theo seed.
-- [ ] Xét điểm rồi đối đầu; còn hòa tạo BO1 hai đội hoặc vòng tròn BO1, lặp nhóm còn hòa.
-- [ ] Loại trực tiếp và loại kép chuyển nguồn đúng; DE loại sau hai lần thua.
-- [ ] Chung kết reset khi đội nhánh thua thắng F1; 38–39 trận chưa tính trận phụ. Test các ví dụ độc lập qua API và xem nhánh từ UI.
+- [x] Mẫu hai bảng 4 đội, 2 lượt tạo 24 trận bảng; vào nhánh cả 8 đội theo seed.
+- [x] Xét điểm rồi đối đầu; còn hòa tạo BO1 hai đội hoặc vòng tròn BO1, lặp nhóm còn hòa.
+- [x] Loại trực tiếp và loại kép chuyển nguồn đúng; DE loại sau hai lần thua.
+- [x] Chung kết reset khi đội nhánh thua thắng F1; 38–39 trận chưa tính trận phụ. Test các ví dụ độc lập qua API và xem nhánh từ UI.
 
 ## Blocked by
 

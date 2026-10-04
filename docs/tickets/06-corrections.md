@@ -9,10 +9,10 @@ Sửa kết quả, xử thắng và lịch sử
 
 ## Acceptance criteria
 
-- [ ] Xem trước ảnh hưởng; xác nhận sửa cần lý do và revision.
-- [ ] Chặn đổi winner khi trận phụ thuộc bị ảnh hưởng đã bắt đầu; metadata vẫn sửa được.
-- [ ] Xử thắng game/trận có lý do, không dựng dữ liệu game giả; DE tính một lần thua trận.
-- [ ] Lịch sử người/thời điểm/trước/sau; kiểm tra đồng thời và transaction không ghi nửa lệnh. UI có xác nhận rõ.
+- [x] Xem trước ảnh hưởng; xác nhận sửa cần lý do và revision.
+- [x] Chặn đổi winner khi trận phụ thuộc bị ảnh hưởng đã bắt đầu; metadata vẫn sửa được.
+- [x] Xử thắng game/trận có lý do, không dựng dữ liệu game giả; DE tính một lần thua trận.
+- [x] Lịch sử người/thời điểm/trước/sau; kiểm tra đồng thời và transaction không ghi nửa lệnh. UI có xác nhận rõ.
 
 ## Blocked by
 

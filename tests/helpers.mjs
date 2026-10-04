@@ -20,8 +20,8 @@ export async function fixture(t, prepareDatabase) {
     await new Promise(resolve => app.server.listen(0, '127.0.0.1', resolve));
     base = `http://127.0.0.1:${app.server.address().port}`;
   }
+  t.after(async () => { if (app) await app.close(); await rm(directory, { recursive: true, force: true }); });
   await restart();
-  t.after(async () => { await app.close(); await rm(directory, { recursive: true, force: true }); });
   async function request(path, { method = 'GET', body, cookie, origin = ORIGIN } = {}) {
     const response = await fetch(base + path, { method, headers: { ...(method !== 'GET' ? { 'Content-Type': 'application/json', Origin: origin } : {}), ...(cookie ? { Cookie: cookie } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
     return { status: response.status, body: await response.json(), cookie: response.headers.get('set-cookie')?.split(';')[0], cookieHeader: response.headers.get('set-cookie') };

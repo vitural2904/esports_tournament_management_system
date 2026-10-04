@@ -9,10 +9,10 @@ Kiểm chứng toàn luồng và bàn giao bản local
 
 ## Acceptance criteria
 
-- [ ] Đi hết mẫu 8 đội đến nhà vô địch; test restart và hai thành viên ở hai phiên.
-- [ ] Rà soát Standards và Spec; sửa toàn bộ lỗi quyền/kết quả/persistence.
-- [ ] Responsive, focus, giảm chuyển động, thông báo rõ; không biến dữ liệu mẫu thành dữ liệu thật.
-- [ ] Một lệnh chạy local, hướng dẫn tạo quản trị và backup/restore. Không công khai hosting. Build và suite hành vi đạt.
+- [x] Đi hết mẫu 8 đội đến nhà vô địch; test restart và hai thành viên ở hai phiên.
+- [x] Rà soát Standards và Spec; sửa toàn bộ lỗi quyền/kết quả/persistence.
+- [x] Responsive, focus, giảm chuyển động, thông báo rõ; không biến dữ liệu mẫu thành dữ liệu thật.
+- [x] Một lệnh chạy local, hướng dẫn tạo quản trị và backup/restore. Không công khai hosting. Build và suite hành vi đạt.
 
 ## Blocked by
 

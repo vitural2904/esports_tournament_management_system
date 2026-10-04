@@ -9,10 +9,10 @@ https://github.com/vitural2904/esports_tournament_management_system/issues/1
 
 ## Acceptance criteria
 
-- [ ] Tạo quản trị đầu tiên một lần, không có mật khẩu mặc định.
-- [ ] Đăng nhập/đăng xuất; cookie HttpOnly; đổi mật khẩu thu hồi phiên và bắt buộc đổi ở lần đầu với tài khoản được cấp.
-- [ ] Quản trị cấp tài khoản qua giao diện; người thường bị chặn qua API.
-- [ ] Dữ liệu tài khoản còn sau restart. Lệnh chạy local có cả API và UI. Test API về quyền và persistence.
+- [x] Tạo quản trị đầu tiên một lần, không có mật khẩu mặc định.
+- [x] Đăng nhập/đăng xuất; cookie HttpOnly; đổi mật khẩu thu hồi phiên và bắt buộc đổi ở lần đầu với tài khoản được cấp.
+- [x] Quản trị cấp tài khoản qua giao diện; người thường bị chặn qua API.
+- [x] Dữ liệu tài khoản còn sau restart. Lệnh chạy local có cả API và UI. Test API về quyền và persistence.
 
 ## Blocked by
 

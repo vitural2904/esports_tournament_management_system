@@ -9,10 +9,10 @@ Quản lý đội, tuyển thủ và danh sách đăng ký
 
 ## Acceptance criteria
 
-- [ ] Tạo/sửa đội và tuyển thủ từ giao diện, đọc lại sau tải lại.
-- [ ] Đăng ký riêng từng giải; thay đổi danh bạ không sửa lịch sử đăng ký cũ.
-- [ ] Kiểm tra tên, ID và tuyển thủ trùng; API chặn người không có quyền.
-- [ ] Test hành vi CRUD, quyền và snapshot qua API.
+- [x] Tạo/sửa đội và tuyển thủ từ giao diện, đọc lại sau tải lại.
+- [x] Đăng ký riêng từng giải; thay đổi danh bạ không sửa lịch sử đăng ký cũ.
+- [x] Kiểm tra tên, ID và tuyển thủ trùng; API chặn người không có quyền.
+- [x] Test hành vi CRUD, quyền và snapshot qua API.
 
 ## Blocked by
 

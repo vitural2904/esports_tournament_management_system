@@ -9,10 +9,10 @@ Xếp lịch, nhập game và xác nhận kết quả
 
 ## Acceptance criteria
 
-- [ ] Nhập lịch từng trận/hàng loạt và đổi lịch sau khóa thể thức.
-- [ ] Nháp thiếu dữ liệu; gửi cần đội thắng; metadata tùy chọn, không trang bị/KDA.
-- [ ] Entry gửi, operator xác nhận; điểm chỉ lấy game confirmed. BO1/3/5 kết thúc đúng ngưỡng.
-- [ ] Giao diện laptop/điện thoại, loading/error rõ; test gửi lặp, game thừa, quyền và dữ liệu còn sau restart.
+- [x] Nhập lịch từng trận/hàng loạt và đổi lịch sau khóa thể thức.
+- [x] Nháp thiếu dữ liệu; gửi cần đội thắng; metadata tùy chọn, không trang bị/KDA.
+- [x] Entry gửi, operator xác nhận; điểm chỉ lấy game confirmed. BO1/3/5 kết thúc đúng ngưỡng.
+- [x] Giao diện laptop/điện thoại, loading/error rõ; test gửi lặp, game thừa, quyền và dữ liệu còn sau restart.
 
 ## Blocked by
 
