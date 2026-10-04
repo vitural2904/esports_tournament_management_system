@@ -2,7 +2,7 @@
 
 Primary source: nhánh `codex/prototype-identity`. Câu hỏi: bố cục nào giúp hồ sơ đội dễ đọc, ảnh nhất quán và trạng thái lịch rõ mà không làm dashboard quá tải?
 
-Mẫu nằm trong OperationsApp, dưới header đăng nhập hiện tại. Chỉ hoạt động ở development. Không đổi API/schema, không ghi dữ liệu thật. Chưa chọn mẫu thắng.
+Mẫu nằm trong OperationsApp, dưới header đăng nhập hiện tại. Chỉ hoạt động ở development. Không đổi API/schema, không ghi dữ liệu thật. Người dùng chốt mẫu A ngày 2026-10-04. B/C giữ làm nguồn tham chiếu.
 
 Chạy `npm run prototype:identity` nếu ứng dụng chưa chạy. Nó khởi động cả API và Vite giống `dev:local`. Mở:
 
@@ -35,8 +35,17 @@ Sau khi chọn bố cục, viết lại phần thắng theo thiết kế [media]
 
 ## Kiểm chứng
 
+### Bổ sung sau khi chốt A
+
+- Danh sách không khóa ở năm người. Nút Thêm thành viên mở form: nickname bắt buộc, họ tên và vị trí tùy chọn. Ảnh thiếu dùng fallback. Chính/dự bị không gắn cố định vào hồ sơ.
+- Danh sách của mẫu A hiện theo giải. Đây là thêm vào dữ liệu mẫu trong bộ nhớ, không phải sửa danh bạ hoặc đăng ký thật. Đổi tab/bố cục hoặc reload đặt lại danh sách.
+- Hover trên chuột: viền sáng và nền đổi nhẹ trong 180ms; ảnh thật phóng 1.025 lần trong khung, tên luôn hiện. Thẻ không di chuyển; không dùng con trỏ bàn tay cho thẻ chỉ đọc. Thiết bị cảm ứng không cần hover để đọc thông tin. Reduced motion tắt phóng ảnh và transition.
+- Tham khảo danh mục [React Bits Micro](https://reactbits.dev/get-started/index), [Flip Card](https://reactbits.dev/c/micro/flip-card) và [Folder Float](https://reactbits.dev/c/micro/folder-float). Bản hover này viết CSS riêng, không nhập các component đó. Không lật thẻ vì nickname/vị trí cần luôn đọc được.
+- Build/typecheck đạt. Browser thử thêm từ 5 lên 8 người, gồm nickname dài và thành viên không có họ tên/vị trí. Cả tám thẻ hiển thị; số đếm cập nhật đúng. Viewport 390px: tám thẻ, nickname dài, document width 375px; không tràn ngang. Đã reset viewport. Chưa kiểm chứng hover thực bằng con trỏ.
+
 - Build/typecheck đạt. Không thêm test tự động cho mã prototype dùng một lần.
 - Browser authenticated: ba variant chạy, nhãn lịch cùng giờ/quá giờ và xác nhận đúng; logo nền trắng và ngang load thành công với contain; portrait/cutout áp dụng vào profile.
 - Các slot logo giải/app/favicon/bìa mở được; chọn WebP từ máy cập nhật preview rồi áp dụng bìa trong memory.
 - Responsive 390×844: profile A/B/C và vùng nhận diện không làm document tràn ngang. Override viewport được reset sau kiểm tra.
 - Prototype không gọi mutation API. Các hành động thực trên header (logout/password) vẫn thuộc ứng dụng thật, không phải nút mẫu.
+
