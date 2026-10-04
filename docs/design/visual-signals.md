@@ -1,6 +1,6 @@
 # Hệ thống tín hiệu thị giác
 
-Thiết kế đề xuất v1. Dùng chung trong lịch, danh sách trận, nhánh đấu và màn hình nhập game. Chưa thay giao diện ở bước này.
+Thiết kế v1 đã được người dùng duyệt ngày 2026-10-04. Dùng chung trong lịch, danh sách trận, nhánh đấu và màn hình nhập game. Chưa thay giao diện ở bước này.
 
 Mục tiêu: biết trận nào sắp tới, dữ liệu nào cần xử lý và trạng thái nào đã chốt, trong một lần nhìn. Không tô cả dashboard hoặc thêm hàng loạt thẻ thống kê.
 
