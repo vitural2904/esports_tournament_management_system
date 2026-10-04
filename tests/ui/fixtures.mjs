@@ -38,14 +38,18 @@ export const test = base.extend({
 });
 export { expect };
 
-export async function prepare(page, origin) {
-  async function api(path, body) {
+export function apiClient(page, origin) {
+  return async function api(path, body) {
     const response = body === undefined
       ? await page.request.get(`/api${path}`)
       : await page.request.post(`/api${path}`, { data: body, headers: { Origin: origin } });
     expect(response.ok(), `${path}: ${await response.text()}`).toBeTruthy();
     return response.json();
-  }
+  };
+}
+
+export async function prepare(page, origin) {
+  const api = apiClient(page, origin);
   await api('/setup', { username: 'ui-owner', displayName: 'UI Owner', password: 'Temporary-UI-Test-Password-42!' });
   const { tournament } = await api('/tournaments', { name: 'UI Regression Cup' });
   const teams = [];
