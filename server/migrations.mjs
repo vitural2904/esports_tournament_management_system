@@ -23,6 +23,8 @@ migrations.push(`ALTER TABLE teams ADD COLUMN media_json TEXT NOT NULL DEFAULT '
  ALTER TABLE players ADD COLUMN media_json TEXT NOT NULL DEFAULT '{}';
  CREATE TABLE media_assets (id TEXT PRIMARY KEY,kind TEXT NOT NULL,subject_id TEXT NOT NULL,slot TEXT NOT NULL,width INTEGER NOT NULL,height INTEGER NOT NULL,source BLOB NOT NULL,created_at TEXT NOT NULL);
  CREATE TABLE media_images (asset_id TEXT NOT NULL REFERENCES media_assets(id),size INTEGER NOT NULL,data BLOB NOT NULL,PRIMARY KEY(asset_id,size));`);
+migrations.push(`ALTER TABLE players ADD COLUMN position TEXT NOT NULL DEFAULT '';
+ ALTER TABLE teams ADD COLUMN description TEXT NOT NULL DEFAULT '';`);
 
 export function migrate(db) {
   db.exec('BEGIN IMMEDIATE');

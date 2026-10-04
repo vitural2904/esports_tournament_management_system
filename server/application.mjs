@@ -155,6 +155,38 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
         return send(200, { user: publicUser(updated) }, createSession(updated));
       }
       if (user.must_change) fail(403, 'Đổi mật khẩu trước khi dùng ứng dụng.');
+      const profileRoute = path.match(/^\/api\/(?:tournaments\/([a-zA-Z0-9-]+)\/)?teams\/([a-zA-Z0-9-]+)\/(profile|members)$/);
+      if (profileRoute) {
+        const [, tournamentId, teamId, action] = profileRoute;
+        if (method === 'GET' && action === 'profile') {
+          if (tournamentId) access.requireRole(user, tournamentId);
+          else if (!access.managesDirectory(user)) fail(403, 'Chưa có quyền đọc danh bạ.');
+          const event = tournamentId ? directory.tournament(tournamentId) : null;
+          const registration = event?.registrations.find(item => item.team.id === teamId) || null;
+          const canManage = access.managesDirectory(user);
+          if (tournamentId && !registration && !canManage) fail(404, 'Đội chưa đăng ký trong giải.');
+          const team = tournamentId && registration ? registration.team : directory.team(teamId);
+          const participations = directory.tournaments().filter(item => access.roles(user, item.id).length && item.registrations.some(record => record.team.id === teamId)).map(item => ({ id: item.id, name: item.name }));
+          const matches = event?.lockedAt ? results.view(tournamentId).list().filter(match => match.teams.includes(teamId)) : [];
+          return send(200, { profile: { team, registration, tournament: event ? { id: event.id, name: event.name } : null, participations, matches, opponents: event?.registrations.map(item => item.team) || [], canManage, canAdd: Boolean(event && access.roles(user, event.id).includes('operator') && (registration || !event.lockedAt)), directoryTeam: canManage ? directory.team(teamId) : null } });
+        }
+        if (method === 'POST' && action === 'members' && tournamentId) {
+          const body = await authenticatedBody();
+          access.requireRole(user, tournamentId, 'operator');
+          if (Boolean(body.player) === Boolean(body.playerId)) fail(400, 'Chọn người có sẵn hoặc tạo tuyển thủ mới.');
+          if (body.player && !access.managesDirectory(user)) fail(403, 'Chưa có quyền sửa danh bạ.');
+          db.exec('BEGIN IMMEDIATE');
+          try {
+            const event = directory.tournament(tournamentId);
+            const before = event.registrations.find(item => item.team.id === teamId);
+            if (body.revision !== (before?.revision || 0)) fail(409, 'Đăng ký vừa thay đổi. Tải lại trước khi thêm.');
+            const playerId = body.player ? directory.save('players', body.player).id : body.playerId;
+            const registration = before?.lockedAt ? rosters.approve(tournamentId, teamId, { revision: body.revision, playerIds: [playerId], reason: body.reason }, user.id) : directory.register(tournamentId, { teamId, revision: body.revision, playerIds: [...(before?.players.map(player => player.id) || []), playerId] }).registration;
+            db.exec('COMMIT');
+            return send(before ? 200 : 201, { registration });
+          } catch (error) { if (db.isTransaction) db.exec('ROLLBACK'); throw error; }
+        }
+      }
       const mediaWrite = path.match(/^\/api\/(teams|players)\/([a-zA-Z0-9-]+)\/media\/(logo|cover|portrait)$/);
       if (mediaWrite && method === 'POST') {
         if (!access.managesDirectory(user)) fail(403, 'Chưa có quyền sửa ảnh danh bạ.');

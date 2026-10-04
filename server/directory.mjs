@@ -6,8 +6,8 @@ function text(value, label, max = 80) {
   return value.trim().normalize('NFC');
 }
 const key = value => value.normalize('NFKC').toLocaleLowerCase('vi');
-const teamDto = row => ({ id: row.id, name: row.name, tag: row.tag, revision: row.revision, archived: Boolean(row.archived), media: JSON.parse(row.media_json || '{}') });
-const playerDto = row => ({ id: row.id, name: row.name, handle: row.handle, revision: row.revision, archived: Boolean(row.archived), media: JSON.parse(row.media_json || '{}') });
+const teamDto = row => ({ id: row.id, name: row.name, tag: row.tag, description: row.description, revision: row.revision, archived: Boolean(row.archived), media: JSON.parse(row.media_json || '{}') });
+const playerDto = row => ({ id: row.id, name: row.name, handle: row.handle, position: row.position, revision: row.revision, archived: Boolean(row.archived), media: JSON.parse(row.media_json || '{}') });
 
 export function createDirectory(db) {
   const tables = { teams: { dto: teamDto, field: 'tag', keyField: 'name_key' }, players: { dto: playerDto, field: 'handle', keyField: 'handle_key' } };
@@ -16,7 +16,10 @@ export function createDirectory(db) {
   }
   function save(kind, body, id) {
     const config = tables[kind];
-    const name = text(body.name, 'Tên');
+    const name = kind === 'teams' ? text(body.name, 'Tên') : body.name == null || body.name === '' ? '' : text(body.name, 'Họ tên');
+    const position = body.position ?? (id && kind === 'players' ? db.prepare('SELECT position FROM players WHERE id=?').get(id)?.position || '' : '');
+    if (kind === 'players' && !['', 'Top', 'Jungle', 'Mid', 'ADC', 'Support'].includes(position)) fail(400, 'Vị trí không hợp lệ.');
+    const description = body.description == null ? null : body.description === '' ? '' : text(body.description, 'Giới thiệu', 1000);
     const field = text(body[config.field], kind === 'teams' ? 'Tên viết tắt' : 'Tên trong game', kind === 'teams' ? 12 : 80);
     const normalized = key(kind === 'teams' ? name : field);
     const existing = id ? db.prepare(`SELECT * FROM ${kind} WHERE id=?`).get(id) : null;
@@ -29,6 +32,8 @@ export function createDirectory(db) {
       if (existing) db.prepare(`UPDATE ${kind} SET name=?,${config.field}=?,${config.keyField}=?,revision=revision+1,archived=? WHERE id=?`).run(name, field, normalized, archived, id);
       else db.prepare(`INSERT INTO ${kind} (id,name,${config.field},${config.keyField},archived) VALUES (?,?,?,?,?)`).run(recordId, name, field, normalized, archived);
     } catch (error) { if (/UNIQUE constraint/.test(error.message)) fail(409, kind === 'teams' ? 'Tên đội đã có.' : 'Tên trong game đã có.'); throw error; }
+    if (kind === 'players') db.prepare('UPDATE players SET position=? WHERE id=?').run(position, recordId);
+    else if (description !== null) db.prepare('UPDATE teams SET description=? WHERE id=?').run(description, recordId);
     return config.dto(db.prepare(`SELECT * FROM ${kind} WHERE id=?`).get(recordId));
   }
   function tournament(id) {
@@ -57,17 +62,19 @@ export function createDirectory(db) {
       const row = db.prepare('SELECT * FROM players WHERE id=?').get(id);
       if (!row || row.archived) fail(400, 'Tuyển thủ không có trong danh bạ hiện tại.');
       const previous = existing?.players.find(player => player.id === id);
-      return previous || { id: row.id, name: row.name, handle: row.handle, media: JSON.parse(row.media_json || '{}') };
+      return previous || { id: row.id, name: row.name, handle: row.handle, position: row.position, media: JSON.parse(row.media_json || '{}') };
     });
-    const snapshot = { team: existing?.team || { id: team.id, name: team.name, tag: team.tag, media: JSON.parse(team.media_json || '{}') }, players };
-    db.exec('BEGIN IMMEDIATE');
+    const snapshot = { team: existing?.team || { id: team.id, name: team.name, tag: team.tag, description: team.description, media: JSON.parse(team.media_json || '{}') }, players };
+    const ownsTransaction = !db.isTransaction;
+    if (ownsTransaction) db.exec('BEGIN IMMEDIATE');
     try {
       db.prepare('INSERT INTO registrations (tournament_id,team_id,snapshot_json) VALUES (?,?,?) ON CONFLICT(tournament_id,team_id) DO UPDATE SET snapshot_json=excluded.snapshot_json,revision=registrations.revision+1').run(tournamentId, team.id, JSON.stringify(snapshot));
       db.prepare('UPDATE tournaments SET revision=revision+1 WHERE id=?').run(tournamentId);
-      db.exec('COMMIT');
-    } catch (error) { if (db.isTransaction) db.exec('ROLLBACK'); throw error; }
+      if (ownsTransaction) db.exec('COMMIT');
+    } catch (error) { if (ownsTransaction && db.isTransaction) db.exec('ROLLBACK'); throw error; }
     return { registration: tournament(tournamentId).registrations.find(item => item.team.id === team.id), created: !existing };
   }
   const tournaments = () => db.prepare('SELECT id FROM tournaments ORDER BY rowid DESC').all().map(row => tournament(row.id));
-  return { list, save, tournament, tournaments, createTournament, register };
+  function team(id) { const row = db.prepare('SELECT * FROM teams WHERE id=?').get(id); if (!row) fail(404, 'Không tìm thấy đội.'); return teamDto(row); }
+  return { team, list, save, tournament, tournaments, createTournament, register };
 }

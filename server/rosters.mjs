@@ -2,7 +2,8 @@ function fail(status, message) { throw Object.assign(new Error(message), { statu
 
 export function createRosters(db, directory, history) {
   function approve(tournamentId, teamId, body, actorId) {
-    db.exec('BEGIN IMMEDIATE');
+    const ownsTransaction = !db.isTransaction;
+    if (ownsTransaction) db.exec('BEGIN IMMEDIATE');
     try {
       const event = directory.tournament(tournamentId);
       const before = event.registrations.find(item => item.team.id === teamId);
@@ -17,16 +18,16 @@ export function createRosters(db, directory, history) {
       const additions = ids.map(id => {
         const player = db.prepare('SELECT * FROM players WHERE id=?').get(id);
         if (!player || player.archived) fail(400, 'Tuyển thủ không có trong danh bạ hiện tại.');
-        return { id: player.id, name: player.name, handle: player.handle, media: JSON.parse(player.media_json || '{}') };
+        return { id: player.id, name: player.name, handle: player.handle, position: player.position, media: JSON.parse(player.media_json || '{}') };
       });
       const snapshot = { team: before.team, players: [...before.players, ...additions] };
       db.prepare('UPDATE registrations SET snapshot_json=?,revision=revision+1 WHERE tournament_id=? AND team_id=?').run(JSON.stringify(snapshot), tournamentId, teamId);
       db.prepare('UPDATE tournaments SET revision=revision+1 WHERE id=?').run(tournamentId);
       const registration = directory.tournament(tournamentId).registrations.find(item => item.team.id === teamId);
       history.record(tournamentId, actorId, 'roster_addition', teamId, body.reason.trim(), before, registration);
-      db.exec('COMMIT');
+      if (ownsTransaction) db.exec('COMMIT');
       return registration;
-    } catch (error) { if (db.isTransaction) db.exec('ROLLBACK'); throw error; }
+    } catch (error) { if (ownsTransaction && db.isTransaction) db.exec('ROLLBACK'); throw error; }
   }
   return { approve };
 }
