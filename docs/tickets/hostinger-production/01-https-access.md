@@ -24,4 +24,4 @@ None (can start immediately).
 
 ## Status
 
-ready-for-agent.
+GitHub: #15. Đã triển khai và kiểm chứng local. Review 0 finding còn mở. Chưa push mã: đang chờ cho phép công khai nhánh để chạy CI Linux. Chưa triển khai máy thật. Báo cáo: docs/reviews/hostinger-production.md.

@@ -35,6 +35,6 @@ Ban tổ chức dùng một bản phát hành có phiên bản trên VPS. App t�
 
 ## Status
 
-ready-for-agent.
+GitHub: #16. Đã triển khai công cụ và kiểm chứng local. Review 0 finding còn mở. Linux service/CI chưa chạy vì push repo công khai cần phê duyệt. Cửa go-live còn chờ VPS/hostname và chính sách backup/offsite của chủ hệ thống. Báo cáo: docs/reviews/hostinger-production.md.
 
 
