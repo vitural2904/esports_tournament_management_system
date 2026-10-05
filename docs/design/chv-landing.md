@@ -28,3 +28,15 @@ Có nút dừng nền. Reduced motion tắt cả nền và lực kéo. Font gi�
 ## Kiểm tra
 
 Browser seam hiện có: landing không gọi API; hai link đăng nhập; bàn phím Enter vào login; tài khoản đăng nhập được vào workspace. Chụp desktop 1280 × 900 và mobile 390 × 844 trong `output/playwright/`. Chạy build, API/domain, operations và UI suite. Chỉ kiểm tra tại máy Windows. Chưa xác nhận CI Linux hoặc domain/Tunnel thật.
+
+Build đạt. 75 API/domain + 3 operations + 7 UI = 85 kiểm tra đạt. Sau sửa mobile brand và nút dừng, chạy lại build và kiểm tra landing: đạt. Favicon, PNG và WebP trả 200 với đúng kiểu ảnh từ localhost.
+
+## Standards
+
+Rà soát độc lập từ `d4e31683b4422606d031d6e6f530194904561a19` đến `6aa67bc`: 0 vi phạm chuẩn, 0 smell cần sửa. Font giữ nguyên. Reduced motion tắt chuyển động. Link giữ hành vi thường. PNG có alpha thật. ICO có ba kích thước. BrandMark dùng chung.
+
+## Spec
+
+Rà soát độc lập cùng diff: 0 lỗi yêu cầu. Landing công khai, hai link đăng nhập, icon thay kiếm và asset tách nền đã nối đúng. Có nguồn tham khảo. Không thêm đăng ký hay nội dung tiếp thị. Desktop/mobile rõ. Domain/Tunnel thật chưa xác nhận.
+
+Tổng: Standards 0; Spec 0. Không có lỗi còn lại trong hai mặt rà soát.
