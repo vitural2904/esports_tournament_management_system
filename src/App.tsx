@@ -1,10 +1,14 @@
-import TournamentBuilderPrototype from "./components/TournamentBuilderPrototype";
-import VisualDashboard from "./components/VisualDashboard";
-import OperationsApp from "./components/OperationsApp";
+import { lazy, Suspense } from "react";
+import LandingPage from "./components/LandingPage";
+
+const TournamentBuilderPrototype = lazy(() => import("./components/TournamentBuilderPrototype"));
+const VisualDashboard = lazy(() => import("./components/VisualDashboard"));
+const OperationsApp = lazy(() => import("./components/OperationsApp"));
 
 export default function App() {
-  if (new URLSearchParams(window.location.search).get("app") === "operations") return <OperationsApp />;
-  return new URLSearchParams(window.location.search).get("prototype") === "builder"
-    ? <TournamentBuilderPrototype />
-    : <VisualDashboard />;
+  const query = new URLSearchParams(window.location.search);
+  if (query.get("app") !== "operations" && query.get("app") !== "demo" && query.get("prototype") !== "builder") return <LandingPage />;
+  return <Suspense fallback={<p role="status">Đang tải…</p>}>
+    {query.get("app") === "operations" ? <OperationsApp /> : query.get("prototype") === "builder" ? <TournamentBuilderPrototype /> : <VisualDashboard />}
+  </Suspense>;
 }
