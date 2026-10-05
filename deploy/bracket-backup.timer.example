@@ -1,0 +1,11 @@
+[Unit]
+Description=Bracket scheduled backup (set an approved OnCalendar first)
+
+[Timer]
+# Example syntax only. Replace with the owner's approved schedule before enabling.
+# OnCalendar=*-*-* 02:00:00 Asia/Ho_Chi_Minh
+Persistent=true
+Unit=bracket-backup.service
+
+[Install]
+WantedBy=timers.target

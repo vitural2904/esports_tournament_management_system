@@ -1,0 +1,24 @@
+[Unit]
+Description=Bracket production API
+After=network.target
+
+[Service]
+Type=simple
+User=bracket
+Group=bracket
+WorkingDirectory=/opt/bracket/current
+EnvironmentFile=/etc/bracket/app.env
+ExecStart=/usr/bin/flock --no-fork --exclusive --nonblock /var/lib/bracket/api.lock /usr/bin/node server/index.mjs
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=30
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/bracket
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target

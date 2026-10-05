@@ -1,0 +1,20 @@
+[Unit]
+Description=Bracket verified offsite backup
+RequiresMountsFor=/mnt/bracket-offsite
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=bracket
+Group=bracket
+WorkingDirectory=/opt/bracket/current
+EnvironmentFile=/etc/bracket/app.env
+EnvironmentFile=/etc/bracket/backup.env
+ExecStartPre=/usr/bin/mountpoint -q /mnt/bracket-offsite
+ExecStart=/usr/bin/node scripts/production-backup.mjs
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/bracket /var/backups/bracket /mnt/bracket-offsite

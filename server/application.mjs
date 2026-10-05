@@ -1,4 +1,5 @@
 import { createServer } from 'node:http';
+import { isIP } from 'node:net';
 import { DatabaseSync } from 'node:sqlite';
 import { randomBytes, randomUUID, scrypt, timingSafeEqual, createHash } from 'node:crypto';
 import { promisify } from 'node:util';
@@ -40,7 +41,7 @@ async function jsonBody(request, maxBytes = 32768) {
   catch { fail(400, 'Dữ liệu không hợp lệ.'); }
 }
 
-export async function createApplication({ databasePath, allowedOrigins = ['http://127.0.0.1:5173'], secureCookies = false }) {
+export async function createApplication({ databasePath, allowedOrigins = ['http://127.0.0.1:5173'], secureCookies = false, allowSetup = true, trustedProxy }) {
   await mkdir(dirname(databasePath), { recursive: true });
   const db = new DatabaseSync(databasePath);
   try {
@@ -76,31 +77,44 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
     if (!user || user.disabled) fail(401, 'Tài khoản không còn hoạt động.');
     return user;
   }
+  async function initializeAdmin(body) {
+    if (db.prepare('SELECT COUNT(*) AS count FROM users').get().count) fail(409, 'Đã tạo quản trị đầu tiên.');
+    credentials(body);
+    if (typeof body.displayName !== 'string' || !body.displayName.trim() || body.displayName.length > 80) fail(400, 'Nhập tên hiển thị tối đa 80 ký tự.');
+    const hash = await passwordHash(body.password);
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      if (db.prepare('SELECT COUNT(*) AS count FROM users').get().count) fail(409, 'Đã tạo quản trị đầu tiên.');
+      const id = randomUUID();
+      db.prepare("INSERT INTO users(id,username,display_name,password_hash,admin,must_change,role) VALUES (?,?,?,?,1,0,'admin')").run(id, body.username.toLowerCase(), body.displayName.trim(), hash);
+      accounts.record(id, id, 'account_created', null, publicUser(findUser(id)));
+      db.exec('COMMIT');
+      return publicUser(findUser(id));
+    } catch (error) { if (db.isTransaction) db.exec('ROLLBACK'); throw error; }
+  }
   async function handle(request, response) {
     const path = new URL(request.url, 'http://localhost').pathname;
     const method = request.method;
     const send = (status, body, cookie) => { response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', ...(cookie ? { 'Set-Cookie': cookie } : {}) }); response.end(JSON.stringify(body)); };
     try {
       if (!['GET', 'HEAD'].includes(method) && !allowedOrigins.includes(request.headers.origin)) fail(403, 'Nguồn yêu cầu không được phép.');
-      if (path === '/api/setup' && method === 'GET') return send(200, { needed: db.prepare('SELECT COUNT(*) AS count FROM users').get().count === 0 });
+      if (path === '/api/health' && method === 'GET') {
+        db.prepare('SELECT version FROM schema_version ORDER BY version DESC LIMIT 1').get();
+        return send(200, { ok: true });
+      }
+      if (path === '/api/setup' && method === 'GET') return send(200, { needed: allowSetup && db.prepare('SELECT COUNT(*) AS count FROM users').get().count === 0 });
       if (path === '/api/setup' && method === 'POST') {
-        if (db.prepare('SELECT COUNT(*) AS count FROM users').get().count) fail(409, 'Đã tạo quản trị đầu tiên.');
-        const body = await jsonBody(request); credentials(body);
-        if (typeof body.displayName !== 'string' || !body.displayName.trim() || body.displayName.length > 80) fail(400, 'Nhập tên hiển thị tối đa 80 ký tự.');
-        const hash = await passwordHash(body.password);
-        db.exec('BEGIN IMMEDIATE');
-        try {
-          if (db.prepare('SELECT COUNT(*) AS count FROM users').get().count) fail(409, 'Đã tạo quản trị đầu tiên.');
-          const id = randomUUID();
-          db.prepare("INSERT INTO users(id,username,display_name,password_hash,admin,must_change,role) VALUES (?,?,?,?,1,0,'admin')").run(id, body.username.toLowerCase(), body.displayName.trim(), hash);
-          accounts.record(id, id, 'account_created', null, publicUser(findUser(id)));
-          db.exec('COMMIT');
-          const user = findUser(id);
-          return send(201, { user: publicUser(user) }, createSession(user));
-        } catch (error) { if (db.isTransaction) db.exec('ROLLBACK'); throw error; }
+        if (!allowSetup) fail(403, 'Khởi tạo quản trị bằng công cụ local trước khi mở dịch vụ.');
+        const user = await initializeAdmin(await jsonBody(request));
+        return send(201, { user }, createSession(findUser(user.id)));
       }
       if (path === '/api/login' && method === 'POST') {
-        const address = request.socket.remoteAddress;
+        let address = request.socket.remoteAddress;
+        if (trustedProxy && address === trustedProxy) {
+          const forwarded = request.headers['x-bracket-client-ip'];
+          if (typeof forwarded !== 'string' || forwarded.includes('%') || !isIP(forwarded)) fail(400, 'Proxy cần gửi một địa chỉ IP hợp lệ.');
+          address = isIP(forwarded) === 6 ? new URL(`http://[${forwarded}]/`).hostname : forwarded;
+        }
         const failures = loginFailures.get(address);
         if (failures && failures.until > Date.now() && failures.count >= 10) fail(429, 'Thử đăng nhập quá nhiều. Chờ 15 phút.');
         const body = await jsonBody(request); credentials(body);
@@ -324,10 +338,10 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
       }
       fail(404, 'Không tìm thấy chức năng.');
     } catch (error) {
-      if (!error.status) console.error('API error:', error.message);
+      if (!error.status) console.error('API error.');
       send(error.status || 500, { error: error.status ? error.message : 'Không thể hoàn tất. Thử lại.' });
     }
   }
   const server = createServer((request, response) => { void handle(request, response); });
-  return { server, close: async () => { if (server.listening) await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve())); db.close(); } };
+  return { server, initializeAdmin, close: async () => { if (server.listening) await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve())); db.close(); } };
 }

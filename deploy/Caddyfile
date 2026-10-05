@@ -1,0 +1,5 @@
+import Caddy.common
+
+{$APP_HOST} {
+	import bracket {remote_host}
+}

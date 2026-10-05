@@ -1,0 +1,12 @@
+{
+	admin off
+	auto_https disable_redirects
+	skip_install_trust
+}
+import Caddy.common
+
+https://localhost:{$PROXY_PORT} {
+	bind 127.0.0.1
+	tls internal
+	import bracket {remote_host}
+}

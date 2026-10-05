@@ -1,6 +1,6 @@
 # Bracket
 
-Ứng dụng cục bộ cho một ban tổ chức vận hành nhiều giải Liên Minh Huyền Thoại. Có lưu dữ liệu, tài khoản và quyền theo giải.
+Ứng dụng cho một ban tổ chức vận hành nhiều giải Liên Minh Huyền Thoại. Có lưu dữ liệu, tài khoản và bốn role toàn hệ thống.
 
 ## Chạy local
 
@@ -24,7 +24,7 @@ Database ở `data/bracket.sqlite`, ngoài thư mục public và bị loại kh�
 ## Luồng dùng
 
 1. Tạo đội và tuyển thủ trong danh bạ. Tạo giải. Đăng ký đội và tuyển thủ riêng cho giải.
-2. Quản trị gán **Điều hành** và/hoặc **Nhập liệu** trong “Thành viên của giải”. Thành viên chỉ thấy giải được cấp quyền. Điều hành quản lý danh bạ, chuẩn bị giải, lịch và xác nhận. Nhập liệu lưu nháp và gửi game. Quản trị có cả hai quyền.
+2. Quản trị cấp một role cho mỗi tài khoản: **Quản trị**, **Điều hành giải**, **Trọng tài** hoặc **Bình luận viên**. Role áp dụng mọi giải. Điều hành quản lý vận hành; trọng tài nhập/xác nhận/sửa kết quả; bình luận viên chỉ đọc dữ liệu nghiệp vụ. Chỉ quản trị quản lý tài khoản.
 3. Chọn preset, chỉnh giai đoạn, bảng, BO và nguồn đội bên cạnh nhánh. Chốt đúng một lần trước thi đấu. Nếu nguồn đội có thể trùng trong một giai đoạn, sửa trước khi chốt. Không đổi cấu trúc sau chốt.
 4. Xếp lịch từng trận hoặc hàng loạt. Nhập game: chỉ cần đội thắng để gửi; thông tin khác tùy chọn. Điều hành xác nhận để cộng điểm. Nháp chưa tính điểm. BO kết thúc ở 1/2/3 game thắng.
 5. Xem bảng điểm và nhánh đấu trực tiếp. Hòa chưa phân định tạo trận phụ BO1. Nhánh tự lấy seed, đội thắng/thua. Loại kép reset khi đội từ nhánh thua thắng chung kết tổng đầu.
@@ -104,6 +104,12 @@ Bản này chạy trên máy tổ chức. Chưa có hosting, HTTPS hay truy cậ
 
 ## Quản trị tài khoản
 
-Mở `?app=operations&view=accounts` sau khi đăng nhập quản trị. Có tìm kiếm, trạng thái, quyền theo giải, cấp tài khoản, chỉnh tên/quyền quản trị, khóa/mở, mật khẩu tạm, thu hồi phiên và lịch sử. API không trả mật khẩu hoặc bản băm. Mọi sửa kiểm tra revision. Không tự khóa/đổi quyền quản trị tại bảng; tự đổi mật khẩu và đăng xuất dùng nút trên đầu trang. Luôn giữ quản trị hoạt động.
+Mở `?app=operations&view=accounts` sau khi đăng nhập quản trị. Có tìm kiếm, trạng thái, role toàn hệ thống, cấp tài khoản, chỉnh tên/role, khóa/mở, mật khẩu tạm, thu hồi phiên và lịch sử. API không trả mật khẩu hoặc bản băm. Mọi sửa kiểm tra revision. Không tự khóa/đổi role tại bảng; tự đổi mật khẩu và đăng xuất dùng nút trên đầu trang. Luôn giữ quản trị hoạt động.
 
-Khóa, reset mật khẩu, đổi quyền quản trị và thu hồi phiên vô hiệu phiên cũ. Reset buộc thành viên đổi mật khẩu. Quyền theo giải được kiểm tra lại mỗi request. Không xóa tài khoản đã có lịch sử. Thông tin tài khoản thử và mật khẩu chỉ ở `.local/`, không nằm trong Git. [Phạm vi](docs/specs/admin-accounts.md).
+Khóa, reset mật khẩu, đổi role và thu hồi phiên vô hiệu phiên cũ. Reset buộc thành viên đổi mật khẩu. Role được kiểm tra lại mỗi request. Không xóa tài khoản đã có lịch sử. Thông tin tài khoản thử và mật khẩu chỉ ở `.local/`, không nằm trong Git. [Role hiện tại](docs/specs/global-roles.md).
+
+## Production
+
+Bản production có cấu hình HTTPS, cookie Secure, IP qua proxy, khởi tạo quản trị bằng stdin riêng tư và health check. Có gói phát hành riêng, service Linux, cập nhật có backup, backup offsite được xác minh và phục hồi vào database mới. Hỗ trợ Caddy trực tiếp hoặc Cloudflare Tunnel qua loopback. [Hướng dẫn vận hành và cửa kiểm tra trước dùng thật](docs/operations/production.md).
+
+Build trước, rồi `npm run package:release -- <thư-mục-mới> <release-id>`. Cài dependencies trên máy đích bằng `npm ci --omit=dev`; không mang node_modules Windows lên Linux. Test vận hành: `npm run test:release`. Test UI production cần Caddy trong PATH hoặc CADDY_BIN; Windows có thể dùng bản riêng trong `.local/tools/caddy/caddy.exe`. Không có hostname, VPS hoặc chính sách backup mặc định đã được cấu hình.

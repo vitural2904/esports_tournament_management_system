@@ -1,0 +1,11 @@
+import Caddy.common
+
+# Only cloudflared on this machine may reach this listener. Never bind publicly.
+http://127.0.0.1:{$PROXY_PORT:8080} {
+	bind 127.0.0.1
+	@wrongHost not host {$APP_HOST}
+	respond @wrongHost 421
+	@missingClient not header CF-Connecting-IP *
+	respond @missingClient 400
+	import bracket {http.request.header.CF-Connecting-IP}
+}

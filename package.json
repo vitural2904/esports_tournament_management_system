@@ -9,6 +9,8 @@
     "api": "node server/index.mjs",
     "test": "node --test tests/*.test.mjs",
     "test:ui": "npm run build && playwright test",
+    "test:release": "npm run build && node --test tests/operations/*.test.mjs",
+    "package:release": "node scripts/package-release.mjs",
     "prototype": "vite --host 127.0.0.1 --port 5173 --open \"/?prototype=builder&variant=A\"",
     "build": "tsc -b && vite build",
     "preview": "vite preview",

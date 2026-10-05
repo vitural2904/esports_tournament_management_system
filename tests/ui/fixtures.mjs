@@ -5,20 +5,29 @@ import { join } from 'node:path';
 import { preview } from 'vite';
 import { createApplication } from '../../server/application.mjs';
 import { createPreset } from '../../shared/format.mjs';
+import { httpsProxy } from './https-proxy.mjs';
 
 // Each test gets a real API, a new database and the built UI on random ports.
 // Never reuse the operator's running app or DATABASE_PATH.
 export const test = base.extend({
-  baseURL: async ({}, use) => {
+  baseURL: async ({}, use, testInfo) => {
     const directory = await mkdtemp(join(tmpdir(), 'bracket-ui-'));
     const allowedOrigins = [];
-    let app, ui;
+    let app, ui, proxy;
+    const production = testInfo.project.name === 'production';
     try {
-      app = await createApplication({ databasePath: join(directory, 'test.sqlite'), allowedOrigins });
+      app = await createApplication({ databasePath: join(directory, 'test.sqlite'), allowedOrigins, secureCookies: production, allowSetup: !production, trustedProxy: production ? '127.0.0.1' : undefined });
+      if (production) await app.initializeAdmin({ username: 'role-admin', displayName: 'Role Admin', password: 'Temporary-Role-Test-Password-42!' });
       await new Promise((resolve, reject) => {
         app.server.once('error', reject);
         app.server.listen(0, '127.0.0.1', resolve);
       });
+      if (production) {
+        proxy = await httpsProxy(directory, app.server.address().port);
+        allowedOrigins.push(proxy.origin);
+        await use(proxy.origin);
+        return;
+      }
       ui = await preview({
         configFile: false,
         preview: {
@@ -30,6 +39,7 @@ export const test = base.extend({
       allowedOrigins.push(origin);
       await use(origin);
     } finally {
+      if (proxy) await proxy.close();
       if (ui) await new Promise((resolve, reject) => ui.httpServer.close(error => error ? reject(error) : resolve()));
       if (app) await app.close();
       await rm(directory, { recursive: true, force: true });

@@ -1,16 +1,22 @@
 import { test, expect, apiClient } from './fixtures.mjs';
 
-test('admin assigns global operator, referee and caster; result writes, corrections and read-only viewing enforce their roles', async ({ page: admin, browser, baseURL }) => {
+test('admin assigns global operator, referee and caster; result writes, corrections and read-only viewing enforce their roles', async ({ page: admin, browser, baseURL }, testInfo) => {
   test.setTimeout(60_000);
   const api = apiClient(admin, baseURL);
   const temporaryPassword = 'Temporary-Role-Test-Password-42!';
   const memberPassword = 'Changed-Role-Test-Password-42!';
-  const operatorContext = await browser.newContext({ baseURL, timezoneId: 'Asia/Ho_Chi_Minh' });
-  const entryContext = await browser.newContext({ baseURL, timezoneId: 'Asia/Ho_Chi_Minh' });
+  const ignoreHTTPSErrors = testInfo.project.name === 'production';
+  const operatorContext = await browser.newContext({ baseURL, ignoreHTTPSErrors, timezoneId: 'Asia/Ho_Chi_Minh' });
+  const entryContext = await browser.newContext({ baseURL, ignoreHTTPSErrors, timezoneId: 'Asia/Ho_Chi_Minh' });
   try {
     const operator = await operatorContext.newPage();
     const entry = await entryContext.newPage();
-    await api('/setup', { username: 'role-admin', displayName: 'Role Admin', password: temporaryPassword });
+    if (ignoreHTTPSErrors) {
+      expect(await (await admin.request.get('/api/setup')).json()).toEqual({ needed: false });
+      expect((await admin.request.post('/api/setup', { data: { username: 'attacker', displayName: 'Other', password: temporaryPassword }, headers: { Origin: baseURL } })).status()).toBe(403);
+      await api('/login', { username: 'role-admin', password: temporaryPassword });
+      expect((await admin.context().cookies()).find(cookie => cookie.name === 'bracket_session').secure).toBe(true);
+    } else await api('/setup', { username: 'role-admin', displayName: 'Role Admin', password: temporaryPassword });
 
     await test.step('Admin creates member accounts and grants one role per account through UI', async () => {
       await admin.goto('/?app=operations&view=accounts');
@@ -163,7 +169,7 @@ test('admin assigns global operator, referee and caster; result writes, correcti
     });
 
     await test.step('Caster sees progress and teams but no business write controls', async () => {
-      const context = await browser.newContext({ baseURL });
+      const context = await browser.newContext({ baseURL, ignoreHTTPSErrors });
       try {
         const caster = await context.newPage();
         await signIn(caster, 'cup-caster');
@@ -189,6 +195,13 @@ test('admin assigns global operator, referee and caster; result writes, correcti
       await expect(admin.getByRole('status')).toContainText('Đã lưu tài khoản.');
       expect((await entry.request.get('/api/me')).status()).toBe(401);
       expect((await operator.request.get('/api/me')).status()).toBe(200);
+    });
+    if (ignoreHTTPSErrors) await test.step('Production proxy overwrites forged IP headers and keeps login limits in force', async () => {
+      for (let index = 0; index < 10; index++) {
+        const response = await admin.request.post('/api/login', { data: { username: 'role-admin', password: 'Wrong-Production-Password-42!' }, headers: { Origin: baseURL, 'X-Bracket-Client-IP': `192.0.2.${index + 1}`, 'CF-Connecting-IP': `192.0.2.${index + 20}`, 'X-Forwarded-For': `192.0.2.${index + 40}` } });
+        expect(response.status()).toBe(401);
+      }
+      expect((await admin.request.post('/api/login', { data: { username: 'role-admin', password: temporaryPassword }, headers: { Origin: baseURL, 'X-Bracket-Client-IP': '192.0.2.99' } })).status()).toBe(429);
     });
   } finally {
     await operatorContext.close();

@@ -1,0 +1,19 @@
+(bracket) {
+	root * "{$RELEASE_ROOT}/dist"
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy same-origin
+		X-Frame-Options DENY
+	}
+	@api path /api /api/*
+	handle @api {
+		reverse_proxy 127.0.0.1:{$API_PORT:3001} {
+			# Overwrite any client-supplied header. The API trusts only this one.
+			header_up X-Bracket-Client-IP {args[0]}
+		}
+	}
+	handle {
+		try_files {path} /index.html
+		file_server
+	}
+}

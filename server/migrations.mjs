@@ -33,6 +33,8 @@ migrations.push(`ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'caster
  ELSE 'caster' END;
  DELETE FROM sessions;`);
 
+export const schemaVersion = migrations.length;
+
 export function migrate(db) {
   db.exec('BEGIN IMMEDIATE');
   try {

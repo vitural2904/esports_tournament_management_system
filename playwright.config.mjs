@@ -3,6 +3,10 @@ import { defineConfig } from '@playwright/test';
 export default defineConfig({
   testDir: './tests/ui',
   testMatch: '**/*.spec.mjs',
+  projects: [
+    { name: 'local' },
+    { name: 'production', testMatch: '**/roles.spec.mjs', use: { ignoreHTTPSErrors: true } },
+  ],
   fullyParallel: false,
   workers: 1,
   forbidOnly: Boolean(process.env.CI),

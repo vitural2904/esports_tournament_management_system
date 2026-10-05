@@ -1,0 +1,85 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { join, resolve } from 'node:path';
+import { readFile, symlink, mkdir, writeFile, stat } from 'node:fs/promises';
+import { pathToFileURL } from 'node:url';
+import sharp from 'sharp';
+import { fixture, owner, password } from '../helpers.mjs';
+import { createPreset } from '../../shared/format.mjs';
+
+const run = promisify(execFile);
+test('release bundle and live offsite backup restore results, history and images with old sessions revoked', async t => {
+  const f = await fixture(t), cookie = await owner(f);
+  const teamIds = [];
+  for (let index = 0; index < 2; index++) teamIds.push((await f.request('/api/teams', { method: 'POST', cookie, body: { name: `Recovery team ${index}`, tag: `R${index}` } })).body.team.id);
+  const png = await sharp({ create: { width: 40, height: 40, channels: 4, background: '#347854' } }).png().toBuffer();
+  const upload = await f.request(`/api/teams/${teamIds[0]}/media/logo`, { method: 'POST', cookie, body: { revision: 1, data: png.toString('base64'), mime: 'image/png', light: false, x: 50, y: 50 } });
+  assert.equal(upload.status, 200);
+  const event = (await f.request('/api/tournaments', { method: 'POST', cookie, body: { name: 'Production recovery cup' } })).body.tournament;
+  for (const teamId of teamIds) await f.request(`/api/tournaments/${event.id}/registrations`, { method: 'POST', cookie, body: { teamId, playerIds: [], revision: 0 } });
+  const current = (await f.request(`/api/tournaments/${event.id}`, { cookie })).body.tournament;
+  const format = createPreset('single_elimination', teamIds); format.stages[0].bo = 1; format.stages[0].finalBo = 1;
+  const saved = (await f.request(`/api/tournaments/${event.id}/format`, { method: 'POST', cookie, body: { revision: current.revision, format } })).body.tournament;
+  await f.request(`/api/tournaments/${event.id}/lock`, { method: 'POST', cookie, body: { revision: saved.revision } });
+  const matches = (await f.request(`/api/tournaments/${event.id}/matches`, { cookie })).body.matches;
+  const game = `/api/tournaments/${event.id}/matches/${encodeURIComponent(matches[0].id)}/games/1`;
+  for (const [action, body] of [['save', { revision: 0, data: { winnerId: teamIds[0] } }], ['submit', { revision: 1 }], ['confirm', { revision: 2 }]]) assert.equal((await f.request(`${game}/${action}`, { method: 'POST', cookie, body })).status, 200);
+  const expectedMatches = (await f.request(`/api/tournaments/${event.id}/matches`, { cookie })).body;
+  const expectedHistory = (await f.request(`/api/tournaments/${event.id}/history`, { cookie })).body;
+  const expectedImage = (await f.request(`/api/media/${upload.body.asset.id}/128`, { cookie })).body;
+  const releaseRoot = join(f.directory, 'release-qa');
+  await run(process.execPath, ['scripts/package-release.mjs', releaseRoot, 'qa-release']);
+  const release = JSON.parse(await readFile(join(releaseRoot, 'release.json'), 'utf8'));
+  assert.equal(release.releaseId, 'qa-release');
+  await assert.rejects(run(process.execPath, ['scripts/package-release.mjs', releaseRoot, 'qa-release']));
+  // Represents dependencies installed on the target OS. The artifact ships the lockfile, not Windows binaries.
+  await symlink(resolve('node_modules'), join(releaseRoot, 'node_modules'), process.platform === 'win32' ? 'junction' : 'dir');
+  const backupRoot = join(f.directory, 'backups'), offsite = join(f.directory, 'offsite');
+  await mkdir(offsite);
+  const result = await run(process.execPath, ['scripts/production-backup.mjs'], { env: { ...process.env, DATABASE_PATH: f.databasePath, RELEASE_ROOT: releaseRoot, BACKUP_DIRECTORY: backupRoot, OFFSITE_DIRECTORY: offsite, BACKUP_KEEP_DAYS: '7' } });
+  const bundle = result.stdout.trim();
+  const manifest = JSON.parse(await readFile(join(bundle, 'backup.json'), 'utf8'));
+  assert.equal(manifest.release.releaseId, 'qa-release');
+  assert.equal(manifest.verifiedOffsite, true);
+  const restored = join(f.directory, 'restored.sqlite');
+  await run(process.execPath, ['scripts/production-restore.mjs', bundle, restored, releaseRoot]);
+  await assert.rejects(run(process.execPath, ['scripts/production-restore.mjs', bundle, f.databasePath, releaseRoot]));
+  const { createApplication } = await import(pathToFileURL(join(releaseRoot, 'server/application.mjs')).href);
+  const app = await createApplication({ databasePath: restored });
+  try {
+    await new Promise(resolve => app.server.listen(0, '127.0.0.1', resolve));
+    const base = `http://127.0.0.1:${app.server.address().port}`;
+    assert.equal((await fetch(base + '/api/me', { headers: { Cookie: cookie } })).status, 401);
+    const login = await fetch(base + '/api/login', { method: 'POST', headers: { Origin: 'http://127.0.0.1:5173', 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'owner', password }) });
+    assert.equal(login.status, 200);
+    const headers = { Cookie: login.headers.get('set-cookie').split(';')[0] };
+    assert.deepEqual(await (await fetch(`${base}/api/tournaments/${event.id}/matches`, { headers })).json(), expectedMatches);
+    assert.deepEqual(await (await fetch(`${base}/api/tournaments/${event.id}/history`, { headers })).json(), expectedHistory);
+    assert.deepEqual(Buffer.from(await (await fetch(`${base}/api/media/${upload.body.asset.id}/128`, { headers })).arrayBuffer()), expectedImage);
+  } finally { await app.close(); }
+  assert.equal((await f.request('/api/me', { cookie })).status, 200);
+});
+
+test('failed offsite backup preserves old bundles; successful retention only prunes verified archives and corrupt restore creates no database', async t => {
+  const f = await fixture(t); await owner(f);
+  const releaseRoot = join(f.directory, 'release');
+  await run(process.execPath, ['scripts/package-release.mjs', releaseRoot, 'retention-qa']);
+  const offsite = join(f.directory, 'offsite'); await mkdir(offsite);
+  const env = { ...process.env, DATABASE_PATH: f.databasePath, RELEASE_ROOT: releaseRoot, BACKUP_DIRECTORY: join(f.directory, 'backups'), OFFSITE_DIRECTORY: offsite, BACKUP_KEEP_DAYS: '7' };
+  const snapshot = async overrides => (await run(process.execPath, ['scripts/production-backup.mjs'], { env: { ...env, ...overrides } })).stdout.trim();
+  const old = await snapshot();
+  const metadataPath = join(old, 'backup.json');
+  const metadata = JSON.parse(await readFile(metadataPath, 'utf8'));
+  metadata.createdAt = '2020-01-01T00:00:00.000Z';
+  await writeFile(metadataPath, JSON.stringify(metadata));
+  await assert.rejects(snapshot({ OFFSITE_DIRECTORY: join(f.directory, 'missing-mount') }));
+  assert.equal((await stat(join(old, 'database.sqlite'))).isFile(), true);
+  const fresh = await snapshot();
+  await assert.rejects(stat(old), { code: 'ENOENT' });
+  await writeFile(join(fresh, 'database.sqlite'), 'corrupted-backup');
+  const destination = join(f.directory, 'must-not-exist.sqlite');
+  await assert.rejects(run(process.execPath, ['scripts/production-restore.mjs', fresh, destination, releaseRoot]));
+  await assert.rejects(stat(destination), { code: 'ENOENT' });
+});
