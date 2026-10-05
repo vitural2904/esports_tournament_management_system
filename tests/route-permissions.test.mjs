@@ -6,10 +6,10 @@ import { createPreset } from '../shared/format.mjs';
 // Route authorization matrix. Allowed writes deliberately use invalid payloads:
 // semantic successful writes are covered by results/corrections/rosters/accounts tests.
 // This matrix must reach validation, never mutate the preserved pilot tournament.
-for (const [name, roles] of [['admin', null], ['operator', ['operator']], ['entry', ['entry']], ['both', ['operator', 'entry']], ['unassigned', []]]) {
+for (const [name, roles] of [['admin', null], ['operator', ['operator']], ['referee', ['referee']], ['caster', ['caster']]]) {
   test(`every protected route enforces ${name} permissions and anonymous access`, async t => {
     const f = await fixture(t), admin = await owner(f);
-    const created = await f.request('/api/users', { method: 'POST', cookie: admin, body: { username: 'route-member', displayName: 'Route member', password } });
+    const created = await f.request('/api/users', { method: 'POST', cookie: admin, body: { username: 'route-member', displayName: 'Route member', password, role: name === 'admin' ? 'caster' : name } });
     const userId = created.body.user.id;
     const login = await f.request('/api/login', { method: 'POST', body: { username: 'route-member', password } });
     const changed = await f.request('/api/password', { method: 'POST', cookie: login.cookie, body: { currentPassword: password, newPassword: 'Route-Member-Password-42!' } });
@@ -21,24 +21,23 @@ for (const [name, roles] of [['admin', null], ['operator', ['operator']], ['entr
       players.push((await f.request('/api/players', { method: 'POST', cookie: admin, body: { name: `Route player ${i}`, handle: `route${i}#VN2` } })).body.player.id);
       await f.request(`/api/tournaments/${event.id}/registrations`, { method: 'POST', cookie: admin, body: { teamId: teams[i], playerIds: [players[i]], revision: 0 } });
     }
-    if (roles !== null) await f.request(`/api/tournaments/${event.id}/grants`, { method: 'POST', cookie: admin, body: { userId, roles, revision: 0 } });
     const base = `/api/tournaments/${event.id}`;
     const current = (await f.request(base, { cookie: admin })).body.tournament;
     const saved = (await f.request(`${base}/format`, { method: 'POST', cookie: admin, body: { revision: current.revision, format: createPreset('single_elimination', teams) } })).body.tournament;
     await f.request(`${base}/lock`, { method: 'POST', cookie: admin, body: { revision: saved.revision } });
     const match = (await f.request(`${base}/matches`, { cookie: admin })).body.matches[0];
     const matchPath = `${base}/matches/${encodeURIComponent(match.id)}`;
-    const canAdmin = roles === null, canOperator = canAdmin || roles.includes('operator'), canEntry = canAdmin || roles.includes('entry'), canRead = canAdmin || roles.length > 0;
+    const canAdmin = roles === null, canOperator = canAdmin || roles.includes('operator'), canEntry = canOperator || roles.includes('referee'), canRead = true, canDirectory = canOperator || name === 'caster';
     const reads = [
-      ['/api/me', true], ['/api/users', canAdmin], [`/api/users/${userId}/history`, canAdmin], ['/api/directory', canOperator], ['/api/tournaments', true],
-      [base, canRead], [`${base}/grants`, canAdmin], [`${base}/matches`, canRead], [matchPath, canRead], [`${base}/standings`, canRead], [`${base}/history`, canRead],
+      ['/api/me', true], ['/api/users', canAdmin], [`/api/users/${userId}/history`, canAdmin], ['/api/directory', canDirectory], ['/api/tournaments', true],
+      [base, canRead], [`${base}/matches`, canRead], [matchPath, canRead], [`${base}/standings`, canDirectory], [`${base}/history`, canRead],
     ];
     const writes = [
       ['/api/users', canAdmin], [`/api/users/${userId}`, canAdmin], [`/api/users/${userId}/reset-password`, canAdmin], [`/api/users/${userId}/revoke-sessions`, canAdmin],
       ['/api/teams', canOperator], [`/api/teams/${teams[0]}`, canOperator], ['/api/players', canOperator], [`/api/players/${players[0]}`, canOperator], ['/api/tournaments', canOperator],
-      [`${base}/registrations`, canOperator], [`${base}/format`, canOperator], [`${base}/lock`, canOperator], [`${base}/grants`, canAdmin], [`${base}/schedule`, canOperator],
-      [`${matchPath}/games/1/save`, canEntry], [`${matchPath}/games/1/submit`, canEntry], [`${matchPath}/games/1/confirm`, canOperator],
-      [`${base}/registrations/${teams[0]}/additions`, canOperator], [`${matchPath}/changes/preview`, canOperator], [`${matchPath}/changes/apply`, canOperator],
+      [`${base}/registrations`, canOperator], [`${base}/format`, canOperator], [`${base}/lock`, canOperator], [`${base}/schedule`, canOperator],
+      [`${matchPath}/games/1/save`, canEntry], [`${matchPath}/games/1/submit`, canEntry], [`${matchPath}/games/1/confirm`, canEntry],
+      [`${base}/registrations/${teams[0]}/additions`, canOperator], [`${matchPath}/changes/preview`, canEntry], [`${matchPath}/changes/apply`, canEntry],
     ];
     for (const [path, allowed] of reads) {
       assert.equal((await f.request(path)).status, 401, `anonymous GET ${path}`);

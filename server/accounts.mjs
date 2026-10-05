@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 function fail(status, message) { throw Object.assign(new Error(message), { status }); }
-export const publicUser = row => ({ id: row.id, username: row.username, displayName: row.display_name, admin: Boolean(row.admin), mustChangePassword: Boolean(row.must_change), disabled: Boolean(row.disabled), revision: row.revision });
+export const publicUser = row => ({ id: row.id, username: row.username, displayName: row.display_name, role: row.role, admin: row.role === 'admin', mustChangePassword: Boolean(row.must_change), disabled: Boolean(row.disabled), revision: row.revision });
 
 export function createAccounts(db) {
   const read = id => {
@@ -24,11 +24,12 @@ export function createAccounts(db) {
     return db.prepare('SELECT h.*,u.display_name FROM account_history h JOIN users u ON u.id=h.actor_id WHERE h.user_id=? ORDER BY h.rowid DESC').all(id).map(row => ({ id: row.id, action: row.action, actor: { id: row.actor_id, displayName: row.display_name }, before: JSON.parse(row.before_json), after: JSON.parse(row.after_json), createdAt: row.created_at }));
   }
   function list() {
-    const grants = db.prepare('SELECT g.*,t.name FROM grants g JOIN tournaments t ON t.id=g.tournament_id ORDER BY t.name,g.rowid').all();
-    return db.prepare('SELECT * FROM users ORDER BY username').all().map(user => ({ ...publicUser(user), grants: grants.filter(grant => grant.user_id === user.id).map(grant => ({ tournamentId: grant.tournament_id, tournamentName: grant.name, roles: JSON.parse(grant.roles_json), revision: grant.revision })) }));
+    return db.prepare('SELECT * FROM users ORDER BY username').all().map(publicUser);
   }
   function update(id, body, actorId) {
-    if (Object.keys(body).some(key => !['revision', 'displayName', 'admin', 'disabled'].includes(key)) || !['displayName', 'admin', 'disabled'].some(key => key in body)) fail(400, 'Thao tác tài khoản không hợp lệ.');
+    if (Object.keys(body).some(key => !['revision', 'displayName', 'role', 'admin', 'disabled'].includes(key)) || !['displayName', 'role', 'admin', 'disabled'].some(key => key in body)) fail(400, 'Thao tác tài khoản không hợp lệ.');
+    if ('role' in body && !['admin', 'operator', 'referee', 'caster'].includes(body.role)) fail(400, 'Role không hợp lệ.');
+    if ('role' in body && 'admin' in body) fail(400, 'Chỉ gửi một role.');
     if ('displayName' in body && (typeof body.displayName !== 'string' || !body.displayName.trim() || body.displayName.length > 80)) fail(400, 'Nhập tên hiển thị tối đa 80 ký tự.');
     for (const key of ['admin', 'disabled']) if (key in body && typeof body[key] !== 'boolean') fail(400, 'Quyền và trạng thái không hợp lệ.');
     db.exec('BEGIN IMMEDIATE');
@@ -36,11 +37,12 @@ export function createAccounts(db) {
       requireAdmin(actorId);
       const user = read(id);
       if (body.revision !== user.revision) fail(409, 'Tài khoản vừa thay đổi. Tải lại trước khi sửa.');
-      const admin = body.admin ?? Boolean(user.admin), disabled = body.disabled ?? Boolean(user.disabled);
-      const securityChanged = admin !== Boolean(user.admin) || disabled !== Boolean(user.disabled);
+      const role = body.role ?? ('admin' in body ? (body.admin ? 'admin' : 'caster') : user.role);
+      const admin = role === 'admin', disabled = body.disabled ?? Boolean(user.disabled);
+      const securityChanged = role !== user.role || disabled !== Boolean(user.disabled);
       if (id === actorId && securityChanged) fail(400, 'Không thể tự khóa hoặc tự đổi quyền quản trị.');
       if (!admin || disabled) requireReplacement(user);
-      db.prepare('UPDATE users SET display_name=?,admin=?,disabled=?,revision=revision+1 WHERE id=?').run(body.displayName?.trim() ?? user.display_name, Number(admin), Number(disabled), id);
+      db.prepare('UPDATE users SET display_name=?,role=?,admin=?,disabled=?,revision=revision+1 WHERE id=?').run(body.displayName?.trim() ?? user.display_name, role, Number(admin), Number(disabled), id);
       if (securityChanged) db.prepare('DELETE FROM sessions WHERE user_id=?').run(id);
       const updated = publicUser(read(id));
       record(id, actorId, 'account_update', publicUser(user), updated);

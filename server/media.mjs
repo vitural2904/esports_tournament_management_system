@@ -92,7 +92,7 @@ export function createMedia(db, access, directory) {
       const event=directory.tournament(tournamentId);
       const referenced=event.registrations.some(registration=>[registration.team,...registration.players].some(entity=>Object.values(entity.media||{}).some(value=>value?.id===id)));
       if(!referenced) fail(404,'Ảnh không thuộc đăng ký của giải.');
-    } else if(!access.managesDirectory(user)) fail(403,'Chưa có quyền xem ảnh danh bạ.');
+    } else if(!access.readsDirectory(user)) fail(403,'Chưa có quyền xem ảnh danh bạ.');
     const image=db.prepare('SELECT data FROM media_images WHERE asset_id=? AND size=?').get(id,size);
     if(!image) fail(404,'Không tìm thấy cỡ ảnh.');
     return Buffer.from(image.data);

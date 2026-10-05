@@ -14,10 +14,9 @@ test('two members operate the eight-team demo through groups, DE reset and champ
   }
   const members = {};
   for (const role of ['entry', 'operator']) {
-    const user = (await f.request('/api/users', { method: 'POST', cookie: admin, body: { username: role, displayName: role, password } })).body.user;
+    const user = (await f.request('/api/users', { method: 'POST', cookie: admin, body: { username: role, displayName: role, password, role: role === 'entry' ? 'referee' : 'operator' } })).body.user;
     let cookie = (await f.request('/api/login', { method: 'POST', body: { username: role, password } })).cookie;
     cookie = (await f.request('/api/password', { method: 'POST', cookie, body: { currentPassword: password, newPassword: 'Changed-Member-Password-42!' } })).cookie;
-    await f.request(`/api/tournaments/${event.id}/grants`, { method: 'POST', cookie: admin, body: { userId: user.id, roles: [role], revision: 0 } });
     members[role] = { id: user.id, cookie };
   }
   const current = (await f.request(`/api/tournaments/${event.id}`, { cookie: admin })).body.tournament;
@@ -54,6 +53,6 @@ test('two members operate the eight-team demo through groups, DE reset and champ
   for (const id of teams) assert.equal(losses.get(id), id === teams[0] ? 1 : 2);
   await f.restart();
   assert.deepEqual(await list(), matches);
-  const final = (await f.request(`/api/tournaments/${event.id}/standings`, { cookie: members.entry.cookie })).body;
+  const final = (await f.request(`/api/tournaments/${event.id}/standings`, { cookie: members.operator.cookie })).body;
   assert.equal(final.completed, true); assert.equal(final.championId, teams[0]);
 });

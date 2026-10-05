@@ -62,7 +62,6 @@ test('scoped profile exposes only granted snapshots and locked atomic additions 
   const user = (await f.request('/api/users', { method: 'POST', cookie, body: { username: 'reader', displayName: 'Reader', password } })).body.user;
   let as = (await f.request('/api/login', { method: 'POST', body: { username: 'reader', password } })).cookie;
   as = (await f.request('/api/password', { method: 'POST', cookie: as, body: { currentPassword: password, newPassword: 'Changed-Password-42!' } })).cookie;
-  await f.request(`/api/tournaments/${event.id}/grants`, { method: 'POST', cookie, body: { userId: user.id, roles: ['entry'], revision: 0 } });
   await f.request(`/api/teams/${teams[0].id}`, { method: 'POST', cookie, body: { ...teams[0], name: 'Private changed identity' } });
   await f.restart();
   const profile = (await f.request(`/api/tournaments/${event.id}/teams/${teams[0].id}/profile`, { cookie: as })).body.profile;
@@ -70,11 +69,11 @@ test('scoped profile exposes only granted snapshots and locked atomic additions 
   assert.equal(profile.registration.players.length, 2);
   assert.equal(profile.registration.players[1].position, 'Support');
   assert.equal(profile.directoryTeam, null);
-  assert.equal(profile.participations.length, 1);
+  assert.equal(profile.participations.length, 2);
   assert.equal(profile.matches.length, 1);
   assert.equal(profile.canAdd, false);
-  assert.equal((await f.request(`/api/teams/${teams[0].id}/profile`, { cookie: as })).status, 403);
-  assert.equal((await f.request(`/api/tournaments/${privateEvent.id}/teams/${teams[0].id}/profile`, { cookie: as })).status, 403);
+  assert.equal((await f.request(`/api/teams/${teams[0].id}/profile`, { cookie: as })).status, 200);
+  assert.equal((await f.request(`/api/tournaments/${privateEvent.id}/teams/${teams[0].id}/profile`, { cookie: as })).status, 200);
   assert.equal((await f.request(path, { method: 'POST', cookie: as, body: { revision: 2, player: { handle: 'Forbidden' }, reason: 'No' } })).status, 403);
 });
 

@@ -162,7 +162,7 @@ test('a whole-match walkover counts one DE loss and preserves the loser route', 
   for (const id of ids) assert.equal(losses.get(id), id === champion ? 0 : 2);
 });
 
-test('entry can read history but cannot preview or apply corrections; outsiders cannot read history', async t => {
+test('caster can read history but cannot preview or apply corrections', async t => {
   const f = await fixture(t), cookie = await owner(f), { id, ids } = await cup(f, cookie);
   const path = `/api/tournaments/${id}/matches/stage1%3AU1`;
   await confirm(f, cookie, path, ids[0]);
@@ -172,8 +172,6 @@ test('entry can read history but cannot preview or apply corrections; outsiders 
   const member = (await f.request('/api/users', { method: 'POST', cookie, body: { username: 'entry', displayName: 'Entry', password: memberPassword } })).body.user;
   let memberCookie = (await f.request('/api/login', { method: 'POST', body: { username: 'entry', password: memberPassword } })).cookie;
   memberCookie = (await f.request('/api/password', { method: 'POST', cookie: memberCookie, body: { currentPassword: memberPassword, newPassword: 'Changed-Member-Password-42!' } })).cookie;
-  assert.equal((await f.request(`/api/tournaments/${id}/history`, { cookie: memberCookie })).status, 403);
-  await f.request(`/api/tournaments/${id}/grants`, { method: 'POST', cookie, body: { userId: member.id, roles: ['entry'], revision: 0 } });
   assert.equal((await f.request(`/api/tournaments/${id}/history`, { cookie: memberCookie })).status, 200);
   assert.equal((await f.request(`${path}/changes/preview`, { method: 'POST', cookie: memberCookie, body: command })).status, 403);
   const preview = (await f.request(`${path}/changes/preview`, { method: 'POST', cookie, body: command })).body;

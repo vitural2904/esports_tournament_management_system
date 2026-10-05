@@ -52,13 +52,17 @@ Vị trí xếp hạng dùng để xác định chỗ của đội trong giai đ
 Trận đấu dùng để xác định thứ hạng khi điểm số và thành tích đối đầu chưa phân định được các đội bằng điểm.
 
 **Quản trị**:
-Vị trí trong ban tổ chức phụ trách cấp tài khoản và gán quyền cho thành viên.
+Role `admin` toàn hệ thống. Có mọi quyền, gồm tạo và quản lý tài khoản. Mỗi tài khoản có đúng một role.
 
 **Điều hành giải**:
-Vị trí trong ban tổ chức phụ trách chuẩn bị giải, chốt thể thức và xác nhận hoặc sửa kết quả.
+Role `operator` toàn hệ thống. Vận hành mọi giải, danh bạ, đăng ký, thể thức, lịch và kết quả. Không quản lý tài khoản.
 
-**Nhập liệu**:
-Vị trí trong ban tổ chức phụ trách nhập dữ liệu game, lưu nháp và gửi xác nhận.
+**Trọng tài**:
+Role `referee` toàn hệ thống. Truy cập trận đấu, ghi và xác nhận kết quả, sửa kết quả cũ hoặc xử thắng. Không sửa lịch, thể thức, đăng ký hay danh bạ.
+_Avoid_: `entry`, Nhập liệu — tên quyền cũ đã được thay thế.
+
+**Bình luận viên**:
+Role `caster` toàn hệ thống. Chỉ đọc trận, tiến trình giải, đội tuyển và tuyển thủ. Không sửa dữ liệu nghiệp vụ.
 
 **Xử thắng**:
 Quyết định của ban tổ chức trao chiến thắng một game hoặc cả trận cho một đội, kèm lý do, chẳng hạn khi đối thủ bỏ cuộc. Kết quả xử thắng không đòi hỏi số liệu thi đấu giả.

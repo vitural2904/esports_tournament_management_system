@@ -86,7 +86,7 @@ test('JPEG orientation is normalized and simultaneous media edits do not overwri
   const metadata=await sharp(image.body).metadata();assert.equal(metadata.exif,undefined);assert.equal(metadata.orientation,undefined);
 });
 
-test('entry can read only media referenced by a granted tournament and cannot upload', async t => {
+test('caster can read directory and registered media but cannot upload; account lock revokes access', async t => {
   const f=await fixture(t),cookie=await owner(f);
   const team=(await f.request('/api/teams',{method:'POST',cookie,body:{name:'Authorized team',tag:'AUTH'}})).body.team;
   const png=await sharp({create:{width:16,height:16,channels:3,background:'#345644'}}).png().toBuffer();
@@ -98,13 +98,12 @@ test('entry can read only media referenced by a granted tournament and cannot up
   const login=await f.request('/api/login',{method:'POST',body:{username:'image-entry',password:'Image-Test-Password-42!'}});
   const changed=await f.request('/api/password',{method:'POST',cookie:login.cookie,body:{currentPassword:'Image-Test-Password-42!',newPassword:'Image-Changed-Password-42!'}});
   const imagePath=`/api/media/${saved.asset.id}/128?tournamentId=${event.id}`;
-  assert.equal((await f.request(imagePath,{cookie:changed.cookie})).status,403);
-  await f.request(`/api/tournaments/${event.id}/grants`,{method:'POST',cookie,body:{userId:user.id,roles:['entry'],revision:0}});
   assert.equal((await f.request(imagePath,{cookie:changed.cookie})).status,200);
-  assert.equal((await f.request(`/api/media/${saved.asset.id}/128`,{cookie:changed.cookie})).status,403);
+  assert.equal((await f.request(imagePath,{cookie:changed.cookie})).status,200);
+  assert.equal((await f.request(`/api/media/${saved.asset.id}/128`,{cookie:changed.cookie})).status,200);
   assert.equal((await f.request(`/api/teams/${team.id}/media/logo`,{method:'POST',cookie:changed.cookie,body:{...body,revision:saved.record.revision}})).status,403);
-  await f.request(`/api/tournaments/${event.id}/grants`,{method:'POST',cookie,body:{userId:user.id,roles:[],revision:1}});
-  assert.equal((await f.request(imagePath,{cookie:changed.cookie})).status,403);
+  await f.request(`/api/users/${user.id}`,{method:'POST',cookie,body:{revision:changed.body.user.revision,disabled:true}});
+  assert.equal((await f.request(imagePath,{cookie:changed.cookie})).status,401);
 });
 
 test('existing backup/restore commands preserve images and registration references', async t => {

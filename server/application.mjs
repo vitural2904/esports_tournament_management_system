@@ -92,7 +92,7 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
         try {
           if (db.prepare('SELECT COUNT(*) AS count FROM users').get().count) fail(409, 'Đã tạo quản trị đầu tiên.');
           const id = randomUUID();
-          db.prepare('INSERT INTO users(id,username,display_name,password_hash,admin,must_change) VALUES (?,?,?,?,1,0)').run(id, body.username.toLowerCase(), body.displayName.trim(), hash);
+          db.prepare("INSERT INTO users(id,username,display_name,password_hash,admin,must_change,role) VALUES (?,?,?,?,1,0,'admin')").run(id, body.username.toLowerCase(), body.displayName.trim(), hash);
           accounts.record(id, id, 'account_created', null, publicUser(findUser(id)));
           db.exec('COMMIT');
           const user = findUser(id);
@@ -159,8 +159,8 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
       if (profileRoute) {
         const [, tournamentId, teamId, action] = profileRoute;
         if (method === 'GET' && action === 'profile') {
+          if (!access.readsDirectory(user)) fail(403, 'Chưa có quyền đọc hồ sơ đội.');
           if (tournamentId) access.requireRole(user, tournamentId);
-          else if (!access.managesDirectory(user)) fail(403, 'Chưa có quyền đọc danh bạ.');
           const event = tournamentId ? directory.tournament(tournamentId) : null;
           const registration = event?.registrations.find(item => item.team.id === teamId) || null;
           const canManage = access.managesDirectory(user);
@@ -169,7 +169,7 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
           const participations = directory.tournaments().filter(item => access.roles(user, item.id).length && item.registrations.some(record => record.team.id === teamId)).map(item => ({ id: item.id, name: item.name }));
           const signalMatches = event?.lockedAt ? results.view(tournamentId).list() : [];
           const matches = signalMatches.filter(match => match.teams.includes(teamId));
-          return send(200, { profile: { team, registration, tournament: event ? { id: event.id, name: event.name } : null, participations, matches, signalMatches, opponents: event?.registrations.map(item => item.team) || [], canManage, canAdd: Boolean(event && access.roles(user, event.id).includes('operator') && (registration || !event.lockedAt)), directoryTeam: canManage ? directory.team(teamId) : null } });
+          return send(200, { profile: { team, registration, tournament: event ? { id: event.id, name: event.name } : null, participations, matches, signalMatches, opponents: event?.registrations.map(item => item.team) || [], canManage, canAdd: Boolean(event && canManage && (registration || !event.lockedAt)), directoryTeam: canManage ? directory.team(teamId) : null } });
         }
         if (method === 'POST' && action === 'members' && tournamentId) {
           const body = await authenticatedBody();
@@ -221,7 +221,7 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
       if (changeRoute && method === 'POST') {
         const [, id, encodedMatchId, action] = changeRoute;
         const body = await authenticatedBody();
-        access.requireRole(user, id, 'operator');
+        access.requireRole(user, id, 'results');
         let matchId;
         try { matchId = decodeURIComponent(encodedMatchId); } catch { fail(400, 'Mã trận không hợp lệ.'); }
         return send(200, changes[action](id, matchId, body, user.id));
@@ -232,14 +232,14 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
         access.requireRole(user, id);
         let matchId;
         try { matchId = encodedMatchId ? decodeURIComponent(encodedMatchId) : null; } catch { fail(400, 'Mã trận không hợp lệ.'); }
-        if (method === 'GET' && section === 'standings' && !matchId) return send(200, results.view(id).standings());
+        if (method === 'GET' && section === 'standings' && !matchId) { access.requireRole(user, id, 'progress'); return send(200, results.view(id).standings()); }
         if (method === 'GET' && section === 'matches' && !action) {
           const current = results.view(id);
           return send(200, matchId ? { match: current.read(matchId) } : { matches: current.list() });
         }
         if (method === 'POST') {
           const body = await authenticatedBody();
-          access.requireRole(user, id, section === 'schedule' || action === 'confirm' ? 'operator' : 'entry');
+          access.requireRole(user, id, section === 'schedule' ? 'operator' : 'results');
           if (section === 'schedule' && !matchId) return send(200, { matches: results.schedule(id, body) });
           if (section === 'matches' && matchId && action) return send(200, { game: results.game(id, matchId, Number(number), action, body, user.id) });
         }
@@ -252,7 +252,6 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
           db.exec('BEGIN IMMEDIATE');
           try {
             const tournament = directory.createTournament(body);
-            if (!user.admin) access.save(tournament.id, { userId: user.id, roles: ['operator'], revision: 0 }, user.id);
             db.exec('COMMIT');
             return send(201, { tournament: { ...tournament, roles: access.roles(user, tournament.id) } });
           } catch (error) { if (db.isTransaction) db.exec('ROLLBACK'); throw error; }
@@ -262,14 +261,7 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
       if (tournamentRoute) {
         const [, id, registrations] = tournamentRoute;
         if (registrations === '/grants') {
-          if (!user.admin) fail(403, 'Chỉ quản trị được cấp quyền.');
-          directory.tournament(id);
-          if (method === 'GET') return send(200, { grants: access.list(id) });
-          if (method === 'POST') {
-            const body = await authenticatedBody();
-            accounts.requireAdmin(user.id);
-            return send(200, { grant: access.save(id, body, user.id) });
-          }
+          fail(410, 'Quyền theo giải đã được thay bằng role toàn hệ thống.');
         }
         access.requireRole(user, id);
         if (method === 'GET' && !registrations) return send(200, { tournament: { ...formats.read(id), roles: access.roles(user, id) } });
@@ -286,7 +278,7 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
         }
       }
       if (path === '/api/directory' && method === 'GET') {
-        if (!access.managesDirectory(user)) fail(403, 'Chưa có quyền quản lý danh bạ.');
+        if (!access.readsDirectory(user)) fail(403, 'Chưa có quyền đọc danh bạ.');
         return send(200, directory.list());
       }
       const directoryRoute = path.match(/^\/api\/(teams|players)(?:\/([a-zA-Z0-9-]+))?$/);
@@ -315,6 +307,7 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
         if (method === 'GET') return send(200, { users: accounts.list() });
         if (method === 'POST') {
           const body = await authenticatedBody(); credentials(body);
+          if (!['admin', 'operator', 'referee', 'caster'].includes(body.role ?? 'caster')) fail(400, 'Role không hợp lệ.');
           if (typeof body.displayName !== 'string' || !body.displayName.trim() || body.displayName.length > 80) fail(400, 'Nhập tên hiển thị tối đa 80 ký tự.');
           const hash = await passwordHash(body.password);
           const id = randomUUID();
@@ -322,7 +315,7 @@ export async function createApplication({ databasePath, allowedOrigins = ['http:
           db.exec('BEGIN IMMEDIATE');
           try {
             accounts.requireAdmin(user.id);
-            db.prepare('INSERT INTO users(id,username,display_name,password_hash,admin,must_change) VALUES (?,?,?,?,0,1)').run(id, body.username.toLowerCase(), body.displayName.trim(), hash);
+            db.prepare('INSERT INTO users(id,username,display_name,password_hash,admin,must_change,role) VALUES (?,?,?,?,?,1,?)').run(id, body.username.toLowerCase(), body.displayName.trim(), hash, Number(body.role === 'admin'), body.role ?? 'caster');
             accounts.record(id, user.id, 'account_created', null, publicUser(findUser(id)));
             db.exec('COMMIT');
           } catch (error) { if (db.isTransaction) db.exec('ROLLBACK'); if (error.code === 'ERR_SQLITE_ERROR' && /UNIQUE/.test(error.message)) fail(409, 'Tên đăng nhập đã có.'); throw error; }

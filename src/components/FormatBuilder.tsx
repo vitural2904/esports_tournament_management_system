@@ -46,7 +46,7 @@ export default function FormatBuilder({ tournamentId, revision, onSaved }: { tou
     try { return { matches: compileFormat(draft, teamIds).matches, problem: "" }; }
     catch (problem) { return { matches: [], problem: problem instanceof Error ? problem.message : "Cấu hình chưa hợp lệ." }; }
   }, [draft, teamIds]);
-  const editable = event?.roles.includes("operator") && !event.lockedAt;
+  const editable = event?.roles.some(role => role === "admin" || role === "operator") && !event.lockedAt;
   const dirty = JSON.stringify(draft) !== JSON.stringify(event?.format);
   function change(edit: (format: Format) => void) {
     if (!draft || !editable) return;

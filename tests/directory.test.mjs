@@ -22,7 +22,7 @@ test('archived directory records cannot join a new tournament while existing sna
 test('directory rejects unauthorized writes, duplicate identities, bad IDs and duplicate tournament players', async t => {
   const f = await fixture(t), cookie = await owner(f);
   assert.equal((await f.request('/api/directory')).status, 401);
-  await f.request('/api/users', { method: 'POST', cookie, body: { username: 'entry', displayName: 'Entry', password } });
+  await f.request('/api/users', { method: 'POST', cookie, body: { username: 'entry', displayName: 'Entry', password, role: 'referee' } });
   const login = await f.request('/api/login', { method: 'POST', body: { username: 'entry', password } });
   const changed = await f.request('/api/password', { method: 'POST', cookie: login.cookie, body: { currentPassword: password, newPassword: 'Changed-Test-Password-42!' } });
   assert.equal(changed.status, 200);

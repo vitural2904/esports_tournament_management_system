@@ -1,4 +1,5 @@
-export type Account = { id: string; username: string; displayName: string; admin: boolean; mustChangePassword: boolean; disabled: boolean; revision: number; grants?: { tournamentId: string; tournamentName: string; roles: TournamentRole[]; revision: number }[] };
+export type AccountRole = "admin" | "operator" | "referee" | "caster";
+export type Account = { id: string; username: string; displayName: string; role: AccountRole; admin: boolean; mustChangePassword: boolean; disabled: boolean; revision: number };
 export type AccountHistoryItem = { id: string; action: string; actor: { id: string; displayName: string }; before: Record<string, unknown> | null; after: Record<string, unknown>; createdAt: string };
 export type MediaAsset = { id: string; width: number; height: number; light: boolean; x: number; y: number };
 export type IdentityMedia = { logo?: MediaAsset; cover?: MediaAsset; portrait?: MediaAsset };
@@ -6,7 +7,7 @@ export type PlayerPosition = "" | "Top" | "Jungle" | "Mid" | "ADC" | "Support";
 export type Team = { id: string; name: string; tag: string; description?: string; media?: IdentityMedia; revision: number; archived: boolean };
 export type Player = { id: string; name: string; handle: string; position?: PlayerPosition; media?: IdentityMedia; revision: number; archived: boolean };
 export type Registration = { team: Pick<Team, "id" | "name" | "tag" | "description" | "media">; players: Pick<Player, "id" | "name" | "handle" | "position" | "media">[]; revision: number; lockedAt: string | null };
-export type TournamentRole = "operator" | "entry";
+export type TournamentRole = AccountRole;
 export type Grant = { userId: string; roles: TournamentRole[]; revision: number };
 export type Tournament = { id: string; name: string; revision: number; lockedAt: string | null; format: unknown; registrations: Registration[]; roles: TournamentRole[] };
 export type GameData = { winnerId?: string; durationSeconds?: number; blueTeamId?: string; redTeamId?: string; patch?: string; lineups?: Record<string, string[]>; pickBan?: Partial<Record<"bluePicks" | "redPicks" | "blueBans" | "redBans", string[]>> };

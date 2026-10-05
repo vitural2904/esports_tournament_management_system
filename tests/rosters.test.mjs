@@ -58,10 +58,9 @@ test('only the event operator can approve; invalid, duplicate, archived and stal
   const before = (await f.request(`/api/tournaments/${id}`, { cookie })).body.tournament;
   let operatorCookie;
   for (const username of ['entry', 'operator', 'outsider']) {
-    const user = (await f.request('/api/users', { method: 'POST', cookie, body: { username, displayName: username, password } })).body.user;
+    const user = (await f.request('/api/users', { method: 'POST', cookie, body: { username, displayName: username, password, role: username === 'operator' ? 'operator' : username === 'entry' ? 'referee' : 'caster' } })).body.user;
     let as = (await f.request('/api/login', { method: 'POST', body: { username, password } })).cookie;
     as = (await f.request('/api/password', { method: 'POST', cookie: as, body: { currentPassword: password, newPassword: 'Changed-Password-42!' } })).cookie;
-    if (username !== 'outsider') await f.request(`/api/tournaments/${id}/grants`, { method: 'POST', cookie, body: { userId: user.id, roles: [username], revision: 0 } });
     if (username === 'operator') operatorCookie = as;
     assert.equal((await approve({ ...valid, playerIds: [] }, as)).status, username === 'operator' ? 400 : 403);
     if (username === 'entry') assert.equal((await f.request(`/api/tournaments/${id}/history`, { cookie: as })).status, 200);

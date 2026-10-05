@@ -79,16 +79,15 @@ test('admin resets temporary passwords and revokes all sessions with audit; plai
   assert.equal((await f.request(`/api/users/${me.id}/reset-password`, { method: 'POST', cookie: admin, body: { revision: me.revision, password } })).status, 400);
 });
 
-test('account list shows tournament permissions and grant audit without allowing member access', async t => {
+test('account list and audit show a single global role without exposing access to members', async t => {
   const f = await fixture(t), admin = await owner(f), user = await member(f, admin);
-  const tournament = (await f.request('/api/tournaments', { method: 'POST', cookie: admin, body: { name: 'Account permissions cup' } })).body.tournament;
-  assert.equal((await f.request(`/api/tournaments/${tournament.id}/grants`, { method: 'POST', cookie: admin, body: { userId: user.id, roles: ['entry'], revision: 0 } })).status, 200);
-  const list = (await f.request('/api/users', { cookie: admin })).body.users;
-  assert.deepEqual(list.find(u => u.id === user.id).grants, [{ tournamentId: tournament.id, tournamentName: 'Account permissions cup', roles: ['entry'], revision: 1 }]);
-  const history = (await f.request(`/api/users/${user.id}/history`, { cookie: admin })).body.history;
-  assert.equal(history[0].action, 'grant_changed');
-  assert.deepEqual(history[0].after.roles, ['entry']);
   assert.equal((await f.request('/api/users', { cookie: user.cookie })).status, 403);
+  assert.equal((await f.request('/api/users', { cookie: admin })).body.users.find(u => u.id === user.id).role, 'caster');
+  await f.request(`/api/users/${user.id}`, { method: 'POST', cookie: admin, body: { revision: user.revision, role: 'operator' } });
+  const history = (await f.request(`/api/users/${user.id}/history`, { cookie: admin })).body.history;
+  assert.equal(history[0].action, 'account_update');
+  assert.equal(history[0].before.role, 'caster');
+  assert.equal(history[0].after.role, 'operator');
 });
 
 test('a password change audits the actual latest account name when an admin rename overlaps hashing', async t => {

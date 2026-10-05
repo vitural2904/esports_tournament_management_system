@@ -26,6 +26,13 @@ migrations.push(`ALTER TABLE teams ADD COLUMN media_json TEXT NOT NULL DEFAULT '
 migrations.push(`ALTER TABLE players ADD COLUMN position TEXT NOT NULL DEFAULT '';
  ALTER TABLE teams ADD COLUMN description TEXT NOT NULL DEFAULT '';`);
 
+migrations.push(`ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'caster' CHECK(role IN ('admin','operator','referee','caster'));
+ UPDATE users SET role=CASE WHEN admin=1 THEN 'admin'
+ WHEN EXISTS(SELECT 1 FROM grants g,json_each(g.roles_json) r WHERE g.user_id=users.id AND r.value='operator') THEN 'operator'
+ WHEN EXISTS(SELECT 1 FROM grants g,json_each(g.roles_json) r WHERE g.user_id=users.id AND r.value='entry') THEN 'referee'
+ ELSE 'caster' END;
+ DELETE FROM sessions;`);
+
 export function migrate(db) {
   db.exec('BEGIN IMMEDIATE');
   try {

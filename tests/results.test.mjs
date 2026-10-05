@@ -67,7 +67,7 @@ test('BO1 and BO5 end at their win thresholds, including a full five-game series
 });
 
 async function member(f, admin, username) {
-  const user = (await f.request('/api/users', { method: 'POST', cookie: admin, body: { username, displayName: username, password } })).body.user;
+  const user = (await f.request('/api/users', { method: 'POST', cookie: admin, body: { username, displayName: username, password, role: username === 'entry' ? 'referee' : username === 'operator' ? 'operator' : 'caster' } })).body.user;
   const login = await f.request('/api/login', { method: 'POST', body: { username, password } });
   const changed = await f.request('/api/password', { method: 'POST', cookie: login.cookie, body: { currentPassword: password, newPassword: 'Changed-Member-Password-42!' } });
   return { id: user.id, cookie: changed.cookie };
@@ -76,11 +76,10 @@ async function member(f, admin, username) {
 test('entry submits and operator confirms; foreign teams, invalid lineups, pick/ban duplicates and stat fields are rejected', async t => {
   const f = await fixture(t), admin = await owner(f), { event, path, teamIds, playerIds, matchId } = await ready(f, admin);
   const entry = await member(f, admin, 'entry'), operator = await member(f, admin, 'operator'), outsider = await member(f, admin, 'outsider');
-  for (const [user, roles] of [[entry, ['entry']], [operator, ['operator']]]) await f.request(`/api/tournaments/${event.id}/grants`, { method: 'POST', cookie: admin, body: { userId: user.id, roles, revision: 0 } });
-  assert.equal((await f.request(path, { cookie: outsider.cookie })).status, 403);
+  assert.equal((await f.request(path, { cookie: outsider.cookie })).status, 200);
   const endpoint = `${path}/games/1`;
   const action = (command, cookie, body) => f.request(`${endpoint}/${command}`, { method: 'POST', cookie, body });
-  assert.equal((await action('save', operator.cookie, { revision: 0, data: {} })).status, 403);
+  assert.equal((await action('save', outsider.cookie, { revision: 0, data: {} })).status, 403);
   for (const data of [
     { winnerId: 'foreign' }, { durationSeconds: -1 }, { durationSeconds: 1.5 }, { blueTeamId: teamIds[0], redTeamId: teamIds[0] },
     { lineups: { [teamIds[0]]: [playerIds[1]] } }, { lineups: { [teamIds[0]]: [playerIds[0], playerIds[0]] } },
@@ -90,7 +89,7 @@ test('entry submits and operator confirms; foreign teams, invalid lineups, pick/
   const data = { winnerId: teamIds[0], blueTeamId: teamIds[0], redTeamId: teamIds[1], lineups: { [teamIds[0]]: [playerIds[0]], [teamIds[1]]: [playerIds[1]] }, pickBan: { bluePicks: ['Ahri'], redBans: ['Yasuo'] }, patch: '26.19', durationSeconds: 1500 };
   assert.equal((await action('save', entry.cookie, { revision: 0, data })).status, 200);
   assert.equal((await action('submit', entry.cookie, { revision: 1 })).status, 200);
-  assert.equal((await action('confirm', entry.cookie, { revision: 2 })).status, 403);
+  assert.equal((await action('confirm', outsider.cookie, { revision: 2 })).status, 403);
   assert.equal((await f.request(`/api/tournaments/${event.id}/schedule`, { method: 'POST', cookie: entry.cookie, body: { updates: [{ matchId, revision: 3, scheduledAt: null }] } })).status, 403);
   const confirmed = await action('confirm', operator.cookie, { revision: 2 });
   assert.equal(confirmed.status, 200); assert.equal(confirmed.body.game.submittedBy, entry.id); assert.equal(confirmed.body.game.confirmedBy, operator.id);

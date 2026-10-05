@@ -1,40 +1,33 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fixture, owner, password } from './helpers.mjs';
+import { scryptSync, createHash } from 'node:crypto';
+import { fixture, password } from './helpers.mjs';
+import { migrate } from '../server/migrations.mjs';
 
-test('tournament grants isolate reads and writes, combine roles, persist, and revoke existing sessions', async t => {
-  const f = await fixture(t), admin = await owner(f);
-  const user = (await f.request('/api/users', { method: 'POST', cookie: admin, body: { username: 'member', displayName: 'Member', password } })).body.user;
-  const login = await f.request('/api/login', { method: 'POST', body: { username: 'member', password } });
-  const member = (await f.request('/api/password', { method: 'POST', cookie: login.cookie, body: { currentPassword: password, newPassword: 'Member-Changed-Password-42!' } })).cookie;
-  const first = (await f.request('/api/tournaments', { method: 'POST', cookie: admin, body: { name: 'First' } })).body.tournament;
-  const second = (await f.request('/api/tournaments', { method: 'POST', cookie: admin, body: { name: 'Second' } })).body.tournament;
-  assert.deepEqual((await f.request('/api/tournaments', { cookie: member })).body.tournaments, []);
-  assert.equal((await f.request(`/api/tournaments/${first.id}`, { cookie: member })).status, 403);
-  const grantPath = `/api/tournaments/${first.id}/grants`;
-  const assign = body => f.request(grantPath, { method: 'POST', cookie: admin, body: { userId: user.id, ...body } });
-  assert.equal((await assign({ roles: ['entry'], revision: 0 })).status, 200);
-  const list = (await f.request('/api/tournaments', { cookie: member })).body.tournaments;
-  assert.deepEqual(list.map(item => item.id), [first.id]);
-  assert.deepEqual(list[0].roles, ['entry']);
-  assert.equal((await f.request(`/api/tournaments/${second.id}`, { cookie: member })).status, 403);
-  assert.equal((await f.request(`/api/tournaments/${first.id}/registrations`, { method: 'POST', cookie: member, body: {} })).status, 403);
-  for (const command of ['format', 'lock']) assert.equal((await f.request(`/api/tournaments/${first.id}/${command}`, { method: 'POST', cookie: member, body: {} })).status, 403);
-  assert.equal((await f.request(grantPath, { method: 'POST', cookie: member, body: { userId: user.id, roles: ['operator'], revision: 1 } })).status, 403);
-  assert.equal((await assign({ roles: ['operator', 'entry'], revision: 1 })).status, 200);
-  assert.equal((await assign({ roles: ['entry'], revision: 1 })).status, 409);
-  assert.equal((await assign({ roles: ['admin'], revision: 2 })).status, 400);
-  assert.equal((await f.request('/api/teams', { method: 'POST', cookie: member, body: { name: 'Operator Team', tag: 'OP' } })).status, 201);
-  const created = await f.request('/api/tournaments', { method: 'POST', cookie: member, body: { name: 'Created by operator' } });
-  assert.equal(created.status, 201);
-  assert.deepEqual(created.body.tournament.roles, ['operator']);
-  assert.equal((await f.request(`/api/tournaments/${created.body.tournament.id}/grants`, { cookie: member })).status, 403);
+test('legacy per-event permissions migrate once to global roles and revoke old sessions', async t => {
+  const salt = 'legacy-role-test-salt';
+  const hash = `${salt}:${scryptSync(password, salt, 64).toString('hex')}`;
+  const f = await fixture(t, db => {
+    migrate(db);
+    db.exec('ALTER TABLE users DROP COLUMN role; DELETE FROM schema_version WHERE version=12;');
+    for (const [id, admin] of [['legacy-admin', 1], ['legacy-op', 0], ['legacy-ref', 0], ['legacy-view', 0]]) {
+      db.prepare('INSERT INTO users(id,username,display_name,password_hash,admin,must_change) VALUES (?,?,?,?,?,0)').run(id, id, id, hash, admin);
+    }
+    db.prepare('INSERT INTO tournaments(id,name) VALUES (?,?)').run('legacy-cup', 'Legacy Cup');
+    for (const [id, roles] of [['legacy-op', ['operator', 'entry']], ['legacy-ref', ['entry']]]) {
+      db.prepare('INSERT INTO grants(tournament_id,user_id,roles_json) VALUES (?,?,?)').run('legacy-cup', id, JSON.stringify(roles));
+    }
+    db.prepare('INSERT INTO sessions VALUES (?,?,?)').run(createHash('sha256').update('legacy-token').digest('hex'), 'legacy-admin', Date.now()+60_000);
+  });
+  assert.equal((await f.request('/api/me', { cookie: 'bracket_session=legacy-token' })).status, 401);
+  for (const [username, role] of [['legacy-admin', 'admin'], ['legacy-op', 'operator'], ['legacy-ref', 'referee'], ['legacy-view', 'caster']]) {
+    const login = await f.request('/api/login', { method: 'POST', body: { username, password } });
+    assert.equal(login.status, 200);
+    assert.equal(login.body.user.role, role);
+    assert.equal((await f.request('/api/tournaments', { cookie: login.cookie })).body.tournaments.length, 1);
+  }
   await f.restart();
-  assert.deepEqual((await f.request(`/api/tournaments/${first.id}`, { cookie: member })).body.tournament.roles, ['operator', 'entry']);
-  assert.equal((await assign({ roles: [], revision: 2 })).status, 200);
-  assert.equal((await f.request(`/api/tournaments/${first.id}`, { cookie: member })).status, 403);
-  // The new tournament's independent operator grant remains until it is revoked.
-  assert.equal((await f.request('/api/directory', { cookie: member })).status, 200);
-  assert.equal((await f.request(`/api/tournaments/${created.body.tournament.id}/grants`, { method: 'POST', cookie: admin, body: { userId: user.id, roles: [], revision: 1 } })).status, 200);
-  assert.equal((await f.request('/api/directory', { cookie: member })).status, 403);
+  const admin = await f.request('/api/login', { method: 'POST', body: { username: 'legacy-admin', password } });
+  assert.equal(admin.body.user.role, 'admin');
+  assert.equal((await f.request('/api/tournaments/legacy-cup/grants', { cookie: admin.cookie })).status, 410);
 });
