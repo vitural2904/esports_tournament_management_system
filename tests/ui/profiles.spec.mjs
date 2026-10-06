@@ -1,6 +1,65 @@
 import sharp from 'sharp';
 import { test, expect, prepare, openProfile } from './fixtures.mjs';
 
+for (const width of [1280, 390]) test(`team images can be uploaded, replaced and removed without editing profile text at ${width}px`, async ({ page, baseURL }) => {
+  await page.setViewportSize({ width, height: 900 });
+  const { tournament } = await prepare(page, baseURL);
+  await page.goto('/?app=operations&view=directory');
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.getByRole('button', { name: 'Ảnh đội Aurora Esports', exact: true }).click();
+  const profile = page.getByRole('region', { name: 'Hồ sơ đội', exact: true });
+  await expect(profile.getByRole('textbox', { name: 'Tên đội', exact: true })).toHaveCount(0);
+  for (const [slot, label, imageLabel] of [['logo', 'logo đội', 'Logo đội'], ['cover', 'ảnh bìa', 'Ảnh bìa đội']]) {
+    const editor = profile.getByRole('region', { name: `Chỉnh ${label}`, exact: true });
+    await editor.getByRole('button', { name: `Thêm ${label}`, exact: true }).click();
+    const png = await sharp({ create: { width: 64, height: 64, channels: 4, background: '#227744' } }).png().toBuffer();
+    await editor.getByLabel(`Chọn ${label}`, { exact: true }).setInputFiles({ name: `${slot}.png`, mimeType: 'image/png', buffer: png });
+    await expect(editor.getByRole('img', { name: `Xem trước ${label}` })).toBeVisible();
+    await editor.getByRole('button', { name: 'Lưu ảnh', exact: true }).click();
+    await expect(editor.getByRole('status')).toContainText('Đã lưu ảnh.');
+    const image = profile.getByRole('img', { name: imageLabel, exact: true });
+    await expect.poll(() => image.evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true);
+  }
+  await page.reload();
+  await page.getByRole('button', { name: 'Ảnh đội Aurora Esports', exact: true }).click();
+  await expect(profile.getByRole('img', { name: 'Logo đội', exact: true })).toBeVisible();
+  await expect(profile.getByRole('img', { name: 'Ảnh bìa đội', exact: true })).toBeVisible();
+  for (const [slot, label, imageLabel] of [['logo', 'logo đội', 'Logo đội'], ['cover', 'ảnh bìa', 'Ảnh bìa đội']]) {
+    const image = profile.getByRole('img', { name: imageLabel, exact: true });
+    const oldUrl = await image.getAttribute('src');
+    const editor = profile.getByRole('region', { name: `Chỉnh ${label}`, exact: true });
+    await editor.getByRole('button', { name: `Thay ${label}`, exact: true }).click();
+    const png = await sharp({ create: { width: 96, height: 64, channels: 4, background: '#aa4422' } }).png().toBuffer();
+    await editor.getByLabel(`Chọn ${label}`, { exact: true }).setInputFiles({ name: `${slot}-new.png`, mimeType: 'image/png', buffer: png });
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await editor.getByRole('button', { name: 'Lưu ảnh', exact: true }).click();
+    await expect(image).not.toHaveAttribute('src', oldUrl);
+    await editor.getByRole('button', { name: `Thay ${label}`, exact: true }).click();
+    await editor.getByRole('button', { name: 'Gỡ ảnh', exact: true }).click();
+    await expect(image).toHaveCount(0);
+    await expect(editor.getByRole('button', { name: `Thêm ${label}`, exact: true })).toBeVisible();
+  }
+  await profile.getByRole('combobox', { name: 'Giải đấu', exact: true }).selectOption(tournament.id);
+  await expect(profile.getByRole('img', { name: 'Logo đội', exact: true })).toHaveCount(0);
+  await expect(profile.getByRole('img', { name: 'Ảnh bìa đội', exact: true })).toHaveCount(0);
+  await page.screenshot({ path: `output/team-images-${width}.png`, fullPage: true });
+});
+
+for (const role of ['operator', 'caster']) test(`${role} sees only the allowed team image controls`, async ({ page, baseURL }) => {
+  const { api } = await prepare(page, baseURL);
+  const password = 'Temporary-Image-Test-Password-42!';
+  await api('/users', { username: `image-${role}`, displayName: `Image ${role}`, role, password });
+  await api('/logout', {});
+  await api('/login', { username: `image-${role}`, password });
+  await api('/password', { currentPassword: password, newPassword: 'Changed-Image-Test-Password-42!' });
+  await page.goto('/?app=operations&view=directory');
+  await expect(page.getByRole('button', { name: 'Aurora Esports', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Ảnh đội Aurora Esports', exact: true })).toHaveCount(role === 'operator' ? 1 : 0);
+  const profile = await openProfile(page);
+  await expect(profile.getByRole('button', { name: 'Thêm logo đội', exact: true })).toHaveCount(role === 'operator' ? 1 : 0);
+  await expect(profile.getByRole('button', { name: 'Thêm ảnh bìa', exact: true })).toHaveCount(role === 'operator' ? 1 : 0);
+});
+
 test('saving an uploaded logo preserves typed profile text and allows the next save', async ({ page, baseURL }) => {
   await prepare(page, baseURL);
   const profile = await openProfile(page);
