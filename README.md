@@ -4,6 +4,8 @@
 
 ## Chạy local
 
+Xem [yêu cầu cài đặt và chuyển máy](PREREQUISITES.md). Phụ thuộc đã có trong `package.json` và `package-lock.json`; cài bằng `npm ci`. Không cần `requirements.txt` để chạy app.
+
 ```bash
 npm ci
 npm run dev:local
@@ -18,6 +20,16 @@ npm run dev:local
 ```
 
 Mở [không gian vận hành](http://127.0.0.1:5173/?app=operations). Lần đầu, tạo quản trị bằng mật khẩu riêng. Không có tài khoản hay mật khẩu mặc định. Quản trị cấp tài khoản; thành viên phải đổi mật khẩu ở lần đăng nhập đầu. Mật khẩu từ 12 đến 128 ký tự.
+
+### Tài khoản demo cho phát triển
+
+Với database mới dùng thử trên máy cá nhân, tạo một tài khoản đầu tiên tại màn khởi tạo:
+
+| Tên đăng nhập | Mật khẩu demo | Role |
+| --- | --- | --- |
+| `adminCES` | `bnoETcdqhqvhbBlj` | `admin` |
+
+Đây là thông tin **demo công khai**, chỉ dùng để phát triển local. Repo không seed sẵn tài khoản này và không chứa database. Sau khởi tạo, chỉ có một user quản trị; quản trị tạo thêm user nếu cần. Khi host server thật, chọn mật khẩu riêng. Nếu nhập backup đã có user, dùng tài khoản của backup.
 
 Database ở `data/bracket.sqlite`, ngoài thư mục public và bị loại khỏi Git. Hai máy chủ chỉ nghe loopback: giao diện 5173, API 3001. Dừng bằng Ctrl+C. Dữ liệu còn khi chạy lại. Cổng đang dùng sẽ báo lỗi; không tự chuyển sang cổng khác. Dashboard tại `/` là giao diện mẫu; không ghi dữ liệu vào giải thật.
 
@@ -40,6 +52,8 @@ Mở hồ sơ từ danh bạ, đăng ký hoặc trận đấu. Hồ sơ dùng m�
 Thêm người có sẵn hoặc tạo người mới ngay trong hồ sơ. Nickname bắt buộc; tên, vị trí và ảnh tùy chọn. Đăng ký đã khóa cần người điều hành duyệt bổ sung và ghi lý do.
 
 Logo, ảnh bìa và chân dung nhận PNG/JPEG/WebP tĩnh, tối đa 10 MB, 24 triệu pixel và 8192 pixel mỗi chiều. Có chỉnh điểm hiển thị và nền sáng. Ảnh được xử lý, bỏ metadata và lưu trong database. Backup gồm cả ảnh. Sửa danh bạ không đổi tên hay ảnh trong đăng ký cũ.
+
+Trong Danh bạ, chọn **Ảnh đội** để tải, thay hoặc gỡ logo và ảnh bìa. Công cụ ảnh hiện ngay trong hồ sơ; không cần mở Sửa hồ sơ. Chỉ quản trị và điều hành được sửa.
 
 Hồ sơ, danh sách, lịch, nhánh và màn nhập game dùng chung tín hiệu trận. Lịch gần tới không tự chuyển trận sang đang thi đấu. [Đặc tả hồ sơ, ảnh và tín hiệu](docs/specs/team-profiles-media-signals.md).
 
@@ -72,7 +86,7 @@ npm test
 npm run build
 ```
 
-CI chạy trên mọi push và pull request. Gồm test API/domain, kiểm tra TypeScript, build và năm kiểm tra UI bằng Chromium. Khi UI lỗi, GitHub lưu report, screenshot và trace trong artifact `ui-regression-report` trong 7 ngày.
+CI chạy trên mọi push và pull request. Gồm test API/domain, kiểm tra TypeScript, build, kiểm thử UI bằng Chromium, HTTPS và kiểm tra vận hành Linux. Khi UI lỗi, GitHub lưu report, screenshot và trace trong artifact `ui-regression-report` trong 7 ngày.
 
 Chạy UI local:
 
@@ -85,13 +99,13 @@ Mỗi test UI khởi động API thật và bản giao diện đã build trên c
 
 Test toàn luồng dùng giải 4 đội loại trực tiếp BO1, mỗi đội 5 người. Tạo giải, đăng ký, lưu/chốt thể thức, đặt lịch, lưu nháp, gửi và xác nhận cả ba trận qua UI. Kiểm tra nháp/game chưa xác nhận chưa tính điểm hay đưa đội vào vòng sau; chung kết có đúng hai đội thắng; nhà vô địch và lịch còn sau tải lại. Chỉ tài khoản và danh bạ thử được chuẩn bị qua API. Các thể thức khác đã có test API/domain riêng.
 
-Test phân vai dùng ba phiên riêng: quản trị cấp tài khoản/quyền qua UI; điều hành đăng ký, chốt, đặt lịch; nhập liệu đổi mật khẩu lần đầu, lưu nháp và gửi game; điều hành xác nhận. Kiểm tra nút theo quyền và API trả 403 khi vượt quyền, dữ liệu giữ nguyên sau yêu cầu bị chặn, giải chưa được cấp không hiển thị và không đọc được. Sau khi quản trị thu hồi quyền qua UI, phiên nhập liệu đang mở mất quyền truy cập; điều hành vẫn truy cập được. Danh bạ và một giải riêng dùng làm dữ liệu thử được chuẩn bị qua API.
+Test phân vai dùng các phiên riêng: quản trị cấp role toàn hệ thống; điều hành đăng ký, chốt và đặt lịch; trọng tài ghi, xác nhận và sửa kết quả; bình luận viên chỉ đọc. Kiểm tra nút theo quyền, API trả 403 khi vượt quyền và thu hồi phiên khi khóa hoặc đổi role. Kiểm thử chạy cả local và production HTTPS. Danh bạ và các giải thử được chuẩn bị qua API.
 
 Test dùng database tạm, tài khoản thử riêng và API loopback. Không đụng database thật. Mật khẩu băm scrypt; phiên được lưu dạng hash, cookie HttpOnly/SameSite Strict. Đổi mật khẩu thu hồi toàn bộ phiên của tài khoản. Đăng xuất thu hồi phiên hiện tại.
 
 Đã kiểm tra mẫu 8 đội qua hai thành viên: 24 trận bảng, 15 trận loại kép có reset, 58 game xác nhận, nhà vô địch và dữ liệu sau hai lần khởi động lại. Có kiểm tra quyền trực tiếp, bản cũ, rollback, hòa nhiều đội, xử thắng, sửa kết quả, đăng ký, nâng database cũ và backup/restore.
 
-Bản này chạy trên máy tổ chức. Chưa có hosting, HTTPS hay truy cập từ máy thành viên/điện thoại qua mạng. Bố cục điện thoại được kiểm tra bằng viewport. Dùng SQLite tích hợp Node 22.19, hiện vẫn có cảnh báo experimental. [Đặc tả](docs/specs/v1-operations.md) ghi phạm vi đầy đủ.
+Bản local chạy trên máy tổ chức. Repo đã có runtime production, HTTPS và công cụ vận hành; máy chủ, hostname và cấu hình truy cập phải được thiết lập riêng. Bố cục điện thoại được kiểm tra bằng viewport. Dùng SQLite tích hợp Node 22.19, hiện vẫn có cảnh báo experimental. [Đặc tả](docs/specs/v1-operations.md) ghi phạm vi ban đầu; [hướng dẫn production](docs/operations/production.md) ghi cách host bản hiện tại.
 
 ## UI và animation
 
@@ -106,10 +120,16 @@ Bản này chạy trên máy tổ chức. Chưa có hosting, HTTPS hay truy cậ
 
 Mở `?app=operations&view=accounts` sau khi đăng nhập quản trị. Có tìm kiếm, trạng thái, role toàn hệ thống, cấp tài khoản, chỉnh tên/role, khóa/mở, mật khẩu tạm, thu hồi phiên và lịch sử. API không trả mật khẩu hoặc bản băm. Mọi sửa kiểm tra revision. Không tự khóa/đổi role tại bảng; tự đổi mật khẩu và đăng xuất dùng nút trên đầu trang. Luôn giữ quản trị hoạt động.
 
-Khóa, reset mật khẩu, đổi role và thu hồi phiên vô hiệu phiên cũ. Reset buộc thành viên đổi mật khẩu. Role được kiểm tra lại mỗi request. Không xóa tài khoản đã có lịch sử. Thông tin tài khoản thử và mật khẩu chỉ ở `.local/`, không nằm trong Git. [Role hiện tại](docs/specs/global-roles.md).
+Khóa, reset mật khẩu, đổi role và thu hồi phiên vô hiệu phiên cũ. Reset buộc thành viên đổi mật khẩu. Role được kiểm tra lại mỗi request. Không xóa tài khoản đã có lịch sử. Tài khoản thật và mật khẩu riêng không nằm trong Git; cặp demo công khai ở trên chỉ dùng cho phát triển local. [Role hiện tại](docs/specs/global-roles.md).
 
 ## Production
 
 Bản production có cấu hình HTTPS, cookie Secure, IP qua proxy, khởi tạo quản trị bằng stdin riêng tư và health check. Có gói phát hành riêng, service Linux, cập nhật có backup, backup offsite được xác minh và phục hồi vào database mới. Hỗ trợ Caddy trực tiếp hoặc Cloudflare Tunnel qua loopback. [Hướng dẫn vận hành và cửa kiểm tra trước dùng thật](docs/operations/production.md).
 
 Build trước, rồi `npm run package:release -- <thư-mục-mới> <release-id>`. Cài dependencies trên máy đích bằng `npm ci --omit=dev`; không mang node_modules Windows lên Linux. Test vận hành: `npm run test:release`. Test UI production cần Caddy trong PATH hoặc CADDY_BIN; Windows có thể dùng bản riêng trong `.local/tools/caddy/caddy.exe`. Không có hostname, VPS hoặc chính sách backup mặc định đã được cấu hình.
+
+## Đóng góp
+
+Everyone is welcome to contribute and keep developing the project.
+
+Clone repo, xem [PREREQUISITES.md](PREREQUISITES.md), tạo nhánh riêng và gửi pull request. Dùng GitHub Issues để báo lỗi hoặc đề xuất tính năng. Chạy `npm test`, `npm run build` và kiểm thử UI liên quan trước khi gửi. Không đưa database thật, backup, mật khẩu riêng hoặc token vào commit.
